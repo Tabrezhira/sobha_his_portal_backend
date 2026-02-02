@@ -18,6 +18,16 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Welcome route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Welcome to Sobha Medical API Backend',
+    version: '1.0.0',
+    status: 'Server is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Mount module routers
 import clinicRoutes from './modules/clinic/clinic.routes.js';
 import isolationRoutes from './modules/isolation/isolation.routes.js';
