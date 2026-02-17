@@ -1,5 +1,21 @@
 import CaseResolution from "./resolution.model.js";
 
+function getAllowedLocations(user) {
+  if (user?.role === "superadmin") return null;
+  const base = user?.locationId ? [String(user.locationId)] : [];
+  const extra = Array.isArray(user?.managerLocation)
+    ? user.managerLocation.map((loc) => String(loc))
+    : [];
+  return Array.from(new Set([...base, ...extra]));
+}
+
+function hasLocationAccess(record, user) {
+  if (user?.role === "superadmin") return true;
+  const recordLocation = record?.locationId ? String(record.locationId) : "";
+  const allowed = getAllowedLocations(user) || [];
+  return allowed.includes(recordLocation);
+}
+
 // Create case resolution record (manager only)
 async function createCaseResolution(req, res, next) {
   try {
@@ -23,7 +39,10 @@ async function getCaseResolutions(req, res, next) {
     const p = Math.max(1, parseInt(page, 10));
     const l = Math.max(1, parseInt(limit, 10));
 
-    const query = { locationId: req.user.locationId };
+    const allowedLocations = getAllowedLocations(req.user);
+    const query = allowedLocations
+      ? { locationId: { $in: allowedLocations } }
+      : {};
     if (status) query.status = status;
     if (empId) query.empId = empId;
 
@@ -57,7 +76,7 @@ async function getCaseResolutionById(req, res, next) {
     if (!record) {
       return res.status(404).json({ success: false, message: "Record not found" });
     }
-    if (record.locationId !== req.user.locationId) {
+    if (!hasLocationAccess(record, req.user)) {
       return res
         .status(403)
         .json({ success: false, message: "Access denied" });
@@ -76,7 +95,7 @@ async function updateCaseResolution(req, res, next) {
     if (!record) {
       return res.status(404).json({ success: false, message: "Record not found" });
     }
-    if (record.locationId !== req.user.locationId) {
+    if (!hasLocationAccess(record, req.user)) {
       return res
         .status(403)
         .json({ success: false, message: "Access denied" });
@@ -98,7 +117,7 @@ async function deleteCaseResolution(req, res, next) {
     if (!record) {
       return res.status(404).json({ success: false, message: "Record not found" });
     }
-    if (record.locationId !== req.user.locationId) {
+    if (!hasLocationAccess(record, req.user)) {
       return res
         .status(403)
         .json({ success: false, message: "Access denied" });

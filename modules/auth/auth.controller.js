@@ -6,7 +6,7 @@ import { JWT_SECRET } from '../../config/jwt.js';
 // Register a new user
 async function register(req, res, next) {
 	try {
-		const { name, empId, email, password, role, locationId } = req.body || {};
+		const { name, empId, email, password, role, locationId, managerLocation } = req.body || {};
 		if (!empId || !email || !password || !locationId) {
 			return res.status(400).json({ success: false, message: 'empId, email, password and locationId required' });
 		}
@@ -15,7 +15,7 @@ async function register(req, res, next) {
 		if (exists) return res.status(409).json({ success: false, message: 'User already exists' });
 
 		const hash = await bcrypt.hash(password, 10);
-		const user = new User({ name, empId, email, password: hash, role, locationId });
+		const user = new User({ name, empId, email, password: hash, role, locationId, managerLocation });
 		const saved = await user.save();
 		const out = saved.toObject();
 		delete out.password;
@@ -74,12 +74,18 @@ async function login(req, res, next) {
 // List users with simple filters and pagination
 async function getUsers(req, res, next) {
 	try {
-		const { page = 1, limit = 20, empId, email, role, locationId } = req.query;
+		const { page = 1, limit = 20, empId, email, role, locationId, managerLocation } = req.query;
 		const q = {};
 		if (empId) q.empId = empId;
 		if (email) q.email = email;
 		if (role) q.role = role;
 		if (locationId) q.locationId = locationId;
+		if (managerLocation) {
+			const list = Array.isArray(managerLocation)
+				? managerLocation
+				: String(managerLocation).split(',').map((v) => v.trim()).filter(Boolean);
+			q.managerLocation = { $in: list };
+		}
 
 		const p = Math.max(1, parseInt(page, 10));
 		const l = Math.max(1, parseInt(limit, 10));
