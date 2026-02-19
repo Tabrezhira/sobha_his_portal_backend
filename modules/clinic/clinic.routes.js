@@ -14,6 +14,7 @@ router.post("/", auth, controller.createVisit);
 router.get("/export/excel", controller.exportToExcel);
 router.get("/", controller.getVisits);
 router.get("/summary", controller.getEmpSummary);
+router.get("/filter-by-name", controller.filterByName);
 router.get("/my-location", auth, controller.getVisitsByUserLocation);
 router.get("/:id", controller.getVisitById);
 router.put("/:id", controller.updateVisit);

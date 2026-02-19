@@ -237,6 +237,80 @@ async function getVisitById(req, res, next) {
 	}
 }
 
+// Filter clinic visits by manager's locations
+async function filterByName(req, res, next) {
+	try {
+		// Check if user is authenticated
+		if (!req.user || !req.user._id) {
+			return res.status(401).json({ success: false, message: 'Not authenticated' });
+		}
+
+		// Get manager's location array from JWT user
+		const managerLocations = req.user.managerLocation;
+		
+		if (!managerLocations || !Array.isArray(managerLocations) || managerLocations.length === 0) {
+			return res.status(403).json({ 
+				success: false, 
+				message: 'Manager has no assigned locations' 
+			});
+		}
+
+		// Calculate date 30 days ago
+		const now = new Date();
+		const thirtyDaysAgo = new Date(now);
+		thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+		thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+		// Aggregate to group by employee and calculate metrics
+		const items = await ClinicVisit.aggregate([
+			{
+				$match: {
+					locationId: { $in: managerLocations },
+					date: { $gte: thirtyDaysAgo }
+				}
+			},
+			{
+				$group: {
+					_id: '$empNo',
+					empNo: { $first: '$empNo' },
+					employeeName: { $first: '$employeeName' },
+					emiratesId: { $first: '$emiratesId' },
+					mobileNumber: { $first: '$mobileNumber' },
+					trLocation: { $first: '$trLocation' },
+					visitCount: { $sum: 1 },
+					hasSickLeaveApproved: {
+						$max: {
+							$cond: [{ $eq: ['$sickLeaveStatus', 'Approved'] }, 1, 0]
+						}
+					},
+					visits: { $push: '$$ROOT' }
+				}
+			},
+			{
+				$sort: {
+					hasSickLeaveApproved: -1,
+					visitCount: -1
+				}
+			}
+		]);
+
+		return res.json({
+			success: true,
+			data: items,
+			meta: { 
+				total: items.length,
+				managerLocations,
+				dateRange: {
+					from: thirtyDaysAgo,
+					to: now
+				}
+			},
+		});
+	} catch (err) {
+		next(err);
+	}
+}
+
 // Update a visit
 async function updateVisit(req, res, next) {
 	try {
@@ -642,5 +716,5 @@ async function exportToExcel(req, res, next) {
 	}
 }
 
-export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getEmpSummary, exportToExcel };
+export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getEmpSummary, exportToExcel, filterByName };
 
