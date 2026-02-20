@@ -1,5 +1,29 @@
 import CaseResolution from "./resolution.model.js";
 
+// Validation helper
+function validateRequiredFields(data) {
+  const required = [
+    "date",
+    "empId",
+    "empName",
+    "insuranceID",
+    "trLocation",
+    "MANAGER",
+    "empMobileNo",
+    "TypeOfAdmission",
+    "insuranceType",
+    "providerName",
+    "issue",
+    "typeOfIssue",
+    "issueDate",
+  ];
+
+  const missing = required.filter((field) => !data[field]);
+  if (missing.length > 0) {
+    throw new Error(`Missing required fields: ${missing.join(", ")}`);
+  }
+}
+
 function getAllowedLocations(user) {
   if (user?.role === "superadmin") return null;
   const base = user?.locationId ? [String(user.locationId)] : [];
@@ -19,6 +43,8 @@ function hasLocationAccess(record, user) {
 // Create case resolution record (manager only)
 async function createCaseResolution(req, res, next) {
   try {
+    validateRequiredFields(req.body);
+
     const { locationId, ...data } = req.body;
     const newRecord = new CaseResolution({
       locationId: req.user.locationId,

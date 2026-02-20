@@ -6,7 +6,7 @@ const CASE_RESOLUTION_TRACKER = new mongoose.Schema(
     date: { type: Date, required: true },
     empId: { type: String, required: true },
     empName: { type: String, required: true },
-    emiratesId: { type: String, required: true },
+    insuranceID: { type: String, required: true },
     trLocation: { type: String, required: true },
     MANAGER: { type: String, required: true },
     empMobileNo: { type: String, required: true },
