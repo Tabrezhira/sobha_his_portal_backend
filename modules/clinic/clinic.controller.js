@@ -321,15 +321,9 @@ async function getManagerPrioritizedVisits(req, res, next) {
 
 		// 2. Fetch Employee feedback to exclude them completely
 		// We get all distinct employee numbers that have EVER provided feedback.
-		// Since MemberFeedback uses 'clinic' as an ObjectId ref to ClinicVisit,
-		// we first need to get those visits to find the empNo, OR if MemberFeedback
-		// had empNo directly, we'd use that. Let's look at MemberFeedback schema:
-		// It has `clinic: { type: ObjectId, ref: 'ClinicVisit' }`.
-		// So we must fetch all MemberFeedbacks, populate 'clinic' to get 'empNo',
-		// and collect those empNos.
+		const feedbacks = await MemberFeedback.find({}, 'employeeId');
+		const excludedEmpNos = [...new Set(feedbacks.map(f => f.employeeId).filter(Boolean))];
 
-		const feedbacks = await MemberFeedback.find({}).populate('clinic', 'empNo');
-		const excludedEmpNos = [...new Set(feedbacks.map(f => f.clinic?.empNo).filter(Boolean))];
 
 		// 3. Date constraints
 		const now = new Date();
@@ -367,6 +361,10 @@ async function getManagerPrioritizedVisits(req, res, next) {
 				}
 			},
 			{
+				// Sort by date descending so the first document we encounter is the most recent
+				$sort: { date: -1, _id: -1 }
+			},
+			{
 				$group: {
 					_id: '$empNo',
 					empNo: { $first: '$empNo' },
@@ -395,8 +393,8 @@ async function getManagerPrioritizedVisits(req, res, next) {
 					// Find the most recent visit date (string sorting works here too for YYYY-MM-DD)
 					lastVisitDate: { $max: '$date' },
 
-					// Keep all visits for context
-					visits: { $push: '$$ROOT' }
+					// Keep only the most recent visit for context, dropping all previous history
+					lastVisit: { $first: '$$ROOT' }
 				}
 			},
 			{
@@ -454,12 +452,19 @@ async function getManagerPrioritizedVisits(req, res, next) {
 			}
 		]);
 
+		// Format items to directly return the last visit details
+		const formattedItems = items.map(item => ({
+			...item.lastVisit,
+			rank: item.rank,
+			visitCount: item.visitCount
+		}));
+
 		return res.json({
 			success: true,
-			data: items,
+			data: formattedItems,
 			meta: {
-				returned: items.length,
-				totalRanked: items.length, // we only know up to 50
+				returned: formattedItems.length,
+				totalRanked: formattedItems.length, // we only know up to 50
 				excludedEmpNosCount: excludedEmpNos.length
 			}
 		});
@@ -601,6 +606,53 @@ async function getEmpSummary(req, res, next) {
 				totalReferrals: totals.totalReferrals || 0,
 				openReferrals: totals.openReferrals || 0,
 			},
+		});
+	} catch (err) {
+		next(err);
+	}
+}
+
+// Get last 30 days history for an employee
+async function getEmpHistory(req, res, next) {
+	try {
+		const empNo = req.query.empNo || req.params.empNo;
+		if (!empNo) return res.status(400).json({ success: false, message: 'empNo is required' });
+
+		const now = new Date();
+		const thirtyDaysAgo = new Date(now);
+		thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+		thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+		const formatDate = (dateValue) => {
+			const d = new Date(dateValue);
+			const year = d.getFullYear();
+			const month = String(d.getMonth() + 1).padStart(2, '0');
+			const day = String(d.getDate()).padStart(2, '0');
+			return `${year}-${month}-${day}`;
+		};
+
+		const thirtyDaysAgoStr = formatDate(thirtyDaysAgo);
+
+		const history = await ClinicVisit.find({
+			empNo,
+			date: { $gte: thirtyDaysAgoStr }
+		})
+			.sort({ date: -1 })
+			.select('date providerName doctorName sentTo primaryDiagnosis secondaryDiagnosis referral referralType visitDateReferral');
+
+		const formattedHistory = history.map(visit => ({
+			date: visit.date,
+			providerName: visit.providerName || visit.doctorName || visit.sentTo,
+			primaryDiagnosis: visit.primaryDiagnosis,
+			secondaryDiagnosis: visit.secondaryDiagnosis,
+			referral: visit.referral,
+			referralType: visit.referralType,
+			visitDateReferral: visit.visitDateReferral
+		}));
+
+		return res.json({
+			success: true,
+			data: formattedHistory
 		});
 	} catch (err) {
 		next(err);
@@ -1043,7 +1095,7 @@ async function importExcel(req, res, next) {
 				if (!loc) {
 					loc = String(visitData.locationId || "UNKN").replace(/\s+/g, "").substring(0, 4).toUpperCase();
 				}
-				const d = visitData.date || new Date();
+				const d = visitData.date ? new Date(visitData.date) : new Date();
 				const dd = String(d.getDate()).padStart(2, "0");
 				const mm = String(d.getMonth() + 1).padStart(2, "0");
 
@@ -1088,4 +1140,4 @@ async function importExcel(req, res, next) {
 	}
 }
 
-export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getManagerPrioritizedVisits, getEmpSummary, exportToExcel, filterByName, importExcel };
+export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getManagerPrioritizedVisits, getEmpSummary, getEmpHistory, exportToExcel, filterByName, importExcel };

@@ -19,6 +19,7 @@ router.post("/import/excel", auth, upload.single("file"), controller.importExcel
 router.get("/export/excel", controller.exportToExcel);
 router.get("/", controller.getVisits);
 router.get("/summary", controller.getEmpSummary);
+router.get("/history/:empNo", controller.getEmpHistory);
 router.get("/filter-by-name", controller.filterByName);
 router.get("/my-location", auth, controller.getVisitsByUserLocation);
 router.get("/manager-prioritized", auth, controller.getManagerPrioritizedVisits);

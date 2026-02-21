@@ -4,36 +4,36 @@ const ClinicVisitSchema = new mongoose.Schema(
   {
     locationId: { type: String, index: true },
 
-    date: { type: String, required: true },
-    time: { type: String, required: true },
+    date: { type: String, },
+    time: { type: String, },
 
-    empNo: { type: String, required: true, index: true },
-    employeeName: { type: String, required: true, trim: true, index: true },
+    empNo: { type: String, index: true },
+    employeeName: { type: String, trim: true, index: true },
     dateOfJoining: { type: String },
     eligibilityForSickLeave: { type: Boolean },
     emiratesId: {
       type: String,
-      required: true,
+
       index: true, // not unique
     },
 
     insuranceId: { type: String, index: true },
-    trLocation: { type: String, required: true, index: true },
-    mobileNumber: { type: String, required: true },
+    trLocation: { type: String, index: true },
+    mobileNumber: { type: String, },
 
-    natureOfCase: { type: String, required: true },
-    caseCategory: { type: String, required: true },
+    natureOfCase: { type: String, },
+    caseCategory: { type: String, },
 
     nurseAssessment: [{ type: String }],
     symptomDuration: { type: String },
 
-    temperature: { type: Number },
+    temperature: { type: String },
     bloodPressure: { type: String },
-    heartRate: { type: Number },
+    heartRate: { type: String },
 
     others: { type: String },
 
-    tokenNo: { type: String, required: true, index: true },
+    tokenNo: { type: String, index: true },
     sentTo: { type: String },
     providerName: { type: String },
 
@@ -57,7 +57,7 @@ const ClinicVisitSchema = new mongoose.Schema(
     },
     sickLeaveStartDate: { type: String },
     sickLeaveEndDate: { type: String },
-    totalSickLeaveDays: { type: Number },
+    totalSickLeaveDays: { type: String },
     remarks: { type: String },
     referral: { type: Boolean },
     referralCode: { type: String },
@@ -88,7 +88,6 @@ const ClinicVisitSchema = new mongoose.Schema(
 
     finalRemarks: { type: String },
     ipAdmissionRequired: { type: Boolean, default: false },
-
 
 
     createdBy: {

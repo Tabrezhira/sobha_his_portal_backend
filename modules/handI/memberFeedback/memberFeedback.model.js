@@ -2,23 +2,14 @@ import mongoose from "mongoose";
 
 const memberFeedback = new mongoose.Schema(
   {
-    locationId: { type: String, index: true },
-    clinic: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "ClinicVisit",
-    },
-
+    employeeId: { type: String, index: true },
+    clinicId: { type: mongoose.Schema.Types.ObjectId, ref: "ClinicVisit" },
     manager: { type: String },
-
     dateOfCall: { type: Date },
-
-    treatment: [
-      {
-        wasTreatmentEffective: { type: Boolean },
-        technicianFeedback: { type: String },
-      },
-    ],
-
+    wasTreatmentEffective: { type: Boolean },
+    technicianFeedback: { type: String },
+    wasTreatmentEffective1: { type: Boolean },
+    technicianFeedback1: { type: String },
     refReqToSpecialist: { type: Boolean },
 
     createdBy: {
