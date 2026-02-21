@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import morgan from 'morgan';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { connectDB } from './config/db.js';
@@ -14,6 +15,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(morgan('dev'));
 app.use(express.json());
 
 // Welcome route
@@ -38,6 +40,8 @@ import memberFeedbackRoutes from './modules/handI/memberFeedback/memberFeedback.
 import notAnsCallRoutes from './modules/handI/notAnsCall/notAnsCall.routes.js';
 import grievanceRoutes from './modules/handI/grievance/grievance.routes.js';
 import happinessSurveyRoutes from './modules/handI/happinessSurvey/happinessSurvey.routes.js';
+import patientRoutes from './modules/patient/patient.routes.js';
+import professionRoutes from './modules/profession/profession.routes.js';
 
 app.use('/api/clinic', clinicRoutes);
 app.use('/api/isolation', isolationRoutes);
@@ -50,6 +54,8 @@ app.use('/api/member-feedback', memberFeedbackRoutes);
 app.use('/api/not-ans-call', notAnsCallRoutes);
 app.use('/api/grievance', grievanceRoutes);
 app.use('/api/happiness-survey', happinessSurveyRoutes);
+app.use('/api/patients', patientRoutes);
+app.use('/api/professions', professionRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
