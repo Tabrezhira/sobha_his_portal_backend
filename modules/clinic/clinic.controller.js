@@ -99,13 +99,8 @@ async function createVisit(req, res, next) {
 		}
 
 		// Auto-generate referralCode if referredToHospital is provided
-		if (payload.referrals && Array.isArray(payload.referrals)) {
-			payload.referrals = payload.referrals.map(referral => {
-				if (referral.referredToHospital && !referral.referralCode) {
-					referral.referralCode = `${payload.tokenNo}-REF`;
-				}
-				return referral;
-			});
+		if (payload.referredToHospital && !payload.referralCode) {
+			payload.referralCode = `${payload.tokenNo}-REF`;
 		}
 
 		const visit = new ClinicVisit(payload);
@@ -202,12 +197,10 @@ async function getVisits(req, res, next) {
 		const [total, items] = await Promise.all([
 			ClinicVisit.countDocuments(q),
 			ClinicVisit.find(q)
-				.sort({ date: -1, tokenNo: 1 }) // 🔥 newest date first, then tokenNo
+				.sort({ date: -1, tokenNo: 1 })
 				.skip((p - 1) * l)
 				.limit(l)
-				.populate('createdBy', 'name')
-				.populate('hospitalizations')
-				.populate('isolations'),
+				.populate('createdBy', 'name'),
 		]);
 
 		// 5️⃣ Send response
@@ -227,9 +220,7 @@ async function getVisitById(req, res, next) {
 	try {
 		const { id } = req.params;
 		const visit = await ClinicVisit.findById(id)
-			.populate('createdBy', 'name')
-			.populate('hospitalizations')
-			.populate('isolations');
+			.populate('createdBy', 'name');
 		if (!visit) return res.status(404).json({ success: false, message: 'Not found' });
 		return res.json({ success: true, data: visit });
 	} catch (err) {
@@ -247,11 +238,11 @@ async function filterByName(req, res, next) {
 
 		// Get manager's location array from JWT user
 		const managerLocations = req.user.managerLocation;
-		
+
 		if (!managerLocations || !Array.isArray(managerLocations) || managerLocations.length === 0) {
-			return res.status(403).json({ 
-				success: false, 
-				message: 'Manager has no assigned locations' 
+			return res.status(403).json({
+				success: false,
+				message: 'Manager has no assigned locations'
 			});
 		}
 
@@ -297,7 +288,7 @@ async function filterByName(req, res, next) {
 		return res.json({
 			success: true,
 			data: items,
-			meta: { 
+			meta: {
 				total: items.length,
 				managerLocations,
 				dateRange: {
@@ -316,26 +307,19 @@ async function updateVisit(req, res, next) {
 	try {
 		const { id } = req.params;
 		const payload = req.body || {};
-		
-		// Auto-generate referralCode if referredToHospital is provided in referrals
-		if (payload.referrals && Array.isArray(payload.referrals)) {
+
+		// Auto-generate referralCode if referredToHospital is provided in payload
+		if (payload.referredToHospital && !payload.referralCode) {
 			const visit = await ClinicVisit.findById(id);
 			if (visit) {
-				payload.referrals = payload.referrals.map(referral => {
-					if (referral.referredToHospital && !referral.referralCode) {
-						referral.referralCode = `${visit.tokenNo}-REF`;
-					}
-					return referral;
-				});
+				payload.referralCode = `${visit.tokenNo}-REF`;
 			}
 		}
-		
+
 		let updated = await ClinicVisit.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
 		if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
 		updated = await updated.populate([
-			{ path: 'createdBy', select: 'name' },
-			{ path: 'hospitalizations' },
-			{ path: 'isolations' }
+			{ path: 'createdBy', select: 'name' }
 		]);
 		return res.json({ success: true, data: updated });
 	} catch (err) {
@@ -350,9 +334,7 @@ async function deleteVisit(req, res, next) {
 		let deleted = await ClinicVisit.findByIdAndDelete(id);
 		if (!deleted) return res.status(404).json({ success: false, message: 'Not found' });
 		deleted = await deleted.populate([
-			{ path: 'createdBy', select: 'name' },
-			{ path: 'hospitalizations' },
-			{ path: 'isolations' }
+			{ path: 'createdBy', select: 'name' }
 		]);
 		return res.json({ success: true, data: deleted });
 	} catch (err) {
@@ -377,9 +359,7 @@ async function getVisitsByUserLocation(req, res, next) {
 				.sort({ date: -1, tokenNo: 1 })
 				.skip((p - 1) * l)
 				.limit(l)
-				.populate('createdBy', 'name')
-				.populate('hospitalizations')
-				.populate('isolations'),
+				.populate('createdBy', 'name'),
 		]);
 
 		return res.json({ success: true, data: items, meta: { total, page: p, limit: l } });
@@ -414,15 +394,13 @@ async function getEmpSummary(req, res, next) {
 				{ $match: { empNo } },
 				{
 					$project: {
-						refCount: { $size: { $ifNull: ['$referrals', []] } },
+						// 1 if we have a referral, 0 otherwise
+						refCount: {
+							$cond: [{ $or: [{ $ne: ['$referralCode', null] }, { $ne: ['$referredToHospital', null] }, { $eq: ['$referral', true] }] }, 1, 0]
+						},
+						// 1 if followUpRequired is true, 0 otherwise
 						openRefCount: {
-							$size: {
-								$filter: {
-									input: { $ifNull: ['$referrals', []] },
-									as: 'r',
-									cond: { $eq: ['$$r.followUpRequired', true] },
-								},
-							},
+							$cond: [{ $eq: ['$followUpRequired', true] }, 1, 0]
 						},
 					},
 				},
@@ -468,8 +446,6 @@ async function exportToExcel(req, res, next) {
 		// Get all clinic visits
 		const visits = await ClinicVisit.find({})
 			.populate('createdBy', 'name')
-			.populate('hospitalizations')
-			.populate('isolations')
 			.lean();
 
 		if (visits.length === 0) {
@@ -510,6 +486,8 @@ async function exportToExcel(req, res, next) {
 				'Time': visit.time,
 				'Employee No': visit.empNo,
 				'Employee Name': visit.employeeName,
+				'Date Of Joining': visit.dateOfJoining ? new Date(visit.dateOfJoining).toLocaleDateString() : '',
+				'Eligibility For Sick Leave': visit.eligibilityForSickLeave ? 'Yes' : 'No',
 				'Emirates ID': visit.emiratesId,
 				'Insurance ID': visit.insuranceId,
 				'Location': visit.trLocation,
@@ -517,13 +495,13 @@ async function exportToExcel(req, res, next) {
 				'Nature of Case': visit.natureOfCase,
 				'Case Category': visit.caseCategory,
 				'NURSE ASSESSMENT': visit.nurseAssessment ? visit.nurseAssessment.join(', ') : '',
-				"SYMPTOM DURATION":visit.symptomDuration || '',
+				"SYMPTOM DURATION": visit.symptomDuration || '',
 				'Temperature': visit.temperature || '',
 				'Blood Pressure': visit.bloodPressure || '',
 				'Heart Rate': visit.heartRate || '',
 				'OTHERS': visit.others || '',
 				'Token No': visit.tokenNo,
-			    'SENT TO': visit.sentTo || '',
+				'SENT TO': visit.sentTo || '',
 				'Provider Name': visit.providerName || '',
 				'Doctor Name': visit.doctorName || '',
 				'Primary Diagnosis': visit.primaryDiagnosis || '',
@@ -555,38 +533,56 @@ async function exportToExcel(req, res, next) {
 				rowData[`EXPIRY DATE ${i + 1}`] = '';
 			}
 
-			// Add referral columns
-			if (visit.referrals && visit.referrals.length > 0) {
-				visit.referrals.forEach((ref, refIdx) => {
-					rowData[`REFERRAL CODE ${refIdx + 1}`] = ref.referralCode || '';
-					rowData[`REFERRAL TYPE ${refIdx + 1}`] = ref.referralType || '';
-					rowData[`REFERRED TO - CLINIC/NOS NAME ${refIdx + 1}`] = ref.referredToHospital || '';
-					rowData[`VISIT DATE ${refIdx + 1}`] = ref.visitDateReferral ? new Date(ref.visitDateReferral).toLocaleDateString() : '';
-					rowData[`SPECIALIST TYPE ${refIdx + 1}`] = ref.specialistType || '';
-					rowData[`DOCTOR NAME-REF ${refIdx + 1}`] = ref.doctorName || '';
-					rowData[`INVESTIGATION REPORTS ${refIdx + 1}`] = ref.investigationReports || '';
-					rowData[`PRIMARY DIAGNOSIS-REF ${refIdx + 1}`] = ref.primaryDiagnosisReferral || '';
-					rowData[`SECONDARY DIAGNOSIS-REF ${refIdx + 1}`] = ref.secondaryDiagnosisReferral ? ref.secondaryDiagnosisReferral.join(', ') : '';
-					rowData[`NURSE REMARKS ${refIdx + 1}`] = ref.nurseRemarksReferral || '';
-					rowData[`INSURANCE APPROVAL REQUESTS ${refIdx + 1}`] = ref.insuranceApprovalRequested ? 'Yes' : 'No';
-					rowData[`FOLLOW UP REQUIRED ${refIdx + 1}`] = ref.followUpRequired ? 'Yes' : 'No';
+			// Add referral columns (flattened structure)
+			if (visit.referralCode || visit.referredToHospital || visit.referral) {
+				rowData[`REFERRAL CODE 1`] = visit.referralCode || '';
+				rowData[`REFERRAL TYPE 1`] = visit.referralType || '';
+				rowData[`REFERRED TO - CLINIC/NOS NAME 1`] = visit.referredToHospital || '';
+				rowData[`VISIT DATE 1`] = visit.visitDateReferral ? new Date(visit.visitDateReferral).toLocaleDateString() : '';
+				rowData[`SPECIALIST TYPE 1`] = visit.specialistType || '';
+				rowData[`DOCTOR NAME-REF 1`] = visit.doctorNameReferral || '';
+				rowData[`INVESTIGATION REPORTS 1`] = visit.investigationReports || '';
+				rowData[`PRIMARY DIAGNOSIS-REF 1`] = visit.primaryDiagnosisReferral || '';
+				rowData[`SECONDARY DIAGNOSIS-REF 1`] = visit.secondaryDiagnosisReferral ? visit.secondaryDiagnosisReferral.join(', ') : '';
+				rowData[`NURSE REMARKS 1`] = visit.nurseRemarksReferral || '';
+				rowData[`INSURANCE APPROVAL REQUESTS 1`] = visit.insuranceApprovalRequested ? 'Yes' : 'No';
+				rowData[`FOLLOW UP REQUIRED 1`] = visit.followUpRequired ? 'Yes' : 'No';
 
-					// Add follow-up visits
-					if (ref.followUpVisits && ref.followUpVisits.length > 0) {
-						ref.followUpVisits.forEach((fup, fupIdx) => {
-							rowData[`NEXT VISIT DATE ${refIdx + 1}-${fupIdx + 1}`] = fup.visitDate ? new Date(fup.visitDate).toLocaleDateString() : '';
-							rowData[`ANY ADDITIONAL INFORMATIONS ${refIdx + 1}-${fupIdx + 1}`] = fup.visitRemarks || '';
-						});
-					}
-					// Fill empty follow-up columns
-					for (let i = ref.followUpVisits?.length || 0; i < maxFollowUpVisitsPerReferral; i++) {
-						rowData[`NEXT VISIT DATE ${refIdx + 1}-${i + 1}`] = '';
-						rowData[`ANY ADDITIONAL INFORMATIONS ${refIdx + 1}-${i + 1}`] = '';
-					}
-				});
+				// Add follow-up visits array items
+				if (visit.followUpVisits && visit.followUpVisits.length > 0) {
+					visit.followUpVisits.forEach((fup, fupIdx) => {
+						rowData[`NEXT VISIT DATE 1-${fupIdx + 1}`] = fup.visitDate ? new Date(fup.visitDate).toLocaleDateString() : '';
+						rowData[`ANY ADDITIONAL INFORMATIONS 1-${fupIdx + 1}`] = fup.visitRemarks || '';
+					});
+				}
+				// Fill empty follow-up columns up to maxFollowUpVisitsPerReferral
+				for (let i = visit.followUpVisits?.length || 0; i < maxFollowUpVisitsPerReferral; i++) {
+					rowData[`NEXT VISIT DATE 1-${i + 1}`] = '';
+					rowData[`ANY ADDITIONAL INFORMATIONS 1-${i + 1}`] = '';
+				}
+			} else {
+				// Empty state formatting
+				rowData[`REFERRAL CODE 1`] = '';
+				rowData[`REFERRAL TYPE 1`] = '';
+				rowData[`REFERRED TO - CLINIC/NOS NAME 1`] = '';
+				rowData[`VISIT DATE 1`] = '';
+				rowData[`SPECIALIST TYPE 1`] = '';
+				rowData[`DOCTOR NAME-REF 1`] = '';
+				rowData[`INVESTIGATION REPORTS 1`] = '';
+				rowData[`PRIMARY DIAGNOSIS-REF 1`] = '';
+				rowData[`SECONDARY DIAGNOSIS-REF 1`] = '';
+				rowData[`NURSE REMARKS 1`] = '';
+				rowData[`INSURANCE APPROVAL REQUESTS 1`] = '';
+				rowData[`FOLLOW UP REQUIRED 1`] = '';
+
+				for (let j = 0; j < maxFollowUpVisitsPerReferral; j++) {
+					rowData[`NEXT VISIT DATE 1-${j + 1}`] = '';
+					rowData[`ANY ADDITIONAL INFORMATIONS 1-${j + 1}`] = '';
+				}
 			}
-			// Fill empty referral columns
-			for (let i = visit.referrals?.length || 0; i < maxReferrals; i++) {
+
+			// For the remainder of "maxReferrals" padding (legacy arrays allowed up to maxReferrals, so we must pad Excel columns linearly for backwards compatibility of sheet width if maxReferrals > 1 based on older records)
+			for (let i = (visit.referralCode || visit.referredToHospital ? 1 : 0); i < maxReferrals; i++) {
 				rowData[`REFERRAL CODE ${i + 1}`] = '';
 				rowData[`REFERRAL TYPE ${i + 1}`] = '';
 				rowData[`REFERRED TO - CLINIC/NOS NAME ${i + 1}`] = '';
@@ -621,6 +617,8 @@ async function exportToExcel(req, res, next) {
 			{ wch: 8 },  // Time
 			{ wch: 12 }, // Employee No
 			{ wch: 20 }, // Employee Name
+			{ wch: 18 }, // Date Of Joining
+			{ wch: 25 }, // Eligibility For Sick Leave
 			{ wch: 15 }, // Emirates ID
 			{ wch: 15 }, // Insurance ID
 			{ wch: 15 }, // Mobile Number
@@ -716,5 +714,200 @@ async function exportToExcel(req, res, next) {
 	}
 }
 
-export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getEmpSummary, exportToExcel, filterByName };
+// Import Excel
+async function importExcel(req, res, next) {
+	try {
+		if (!req.file) {
+			return res.status(400).json({ success: false, message: 'No file uploaded' });
+		}
 
+		const workbook = XLSX.readFile(req.file.path, { cellDates: true });
+		const sheetName = workbook.SheetNames[0];
+		const worksheet = workbook.Sheets[sheetName];
+		const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+		if (!jsonData || jsonData.length === 0) {
+			return res.status(400).json({ success: false, message: 'Excel file is empty or invalid' });
+		}
+
+		// Helper to parse boolean from 'YES', 'NO', 'TRUE', 'FALSE'
+		const parseBoolean = (val) => {
+			if (typeof val === 'boolean') return val;
+			if (!val) return false;
+			const s = String(val).trim().toUpperCase();
+			return s === 'YES' || s === 'TRUE' || s === '1';
+		};
+
+		const parseArray = (val, sep = '|') => {
+			if (!val) return [];
+			return String(val).split(sep).map(s => s.trim()).filter(Boolean);
+		};
+
+		const parseDate = (val) => {
+			if (!val) return null;
+			const d = new Date(val);
+			return isNaN(d.getTime()) ? null : d;
+		};
+
+		const newVisits = [];
+
+		for (const row of jsonData) {
+			// Basic mapping
+			const visitData = {
+				locationId: row['TR LOCATION'] || row['Location'] || (req.user ? req.user.locationId : ''),
+				date: parseDate(row['DATE'] || row['Date']),
+				time: row['TIME'] || row['Time'] || '',
+				empNo: row['EMP NO'] || row['Employee No'] || '',
+				employeeName: row['EMPLOYEE NAME'] || row['Employee Name'] || '',
+				emiratesId: row['EMIRATES ID'] || row['Emirates ID'] || '',
+				insuranceId: row['INSURANCE ID'] || row['Insurance ID'] || '',
+				trLocation: row['TR LOCATION'] || row['Location'] || '',
+				mobileNumber: String(row['MOBILE NUMBER'] || row['Mobile Number'] || ''),
+				natureOfCase: row['NATURE OF CASE'] || row['Nature of Case'] || '',
+				caseCategory: row['CASE CATEGORY'] || row['Case Category'] || '',
+
+				nurseAssessment: parseArray(row['NURSE ASSESMENT'] || row['NURSE ASSESSMENT']),
+				symptomDuration: String(row['SYMPTOM DURATION'] || row['Symptom Duration'] || ''),
+				temperature: row['TEMP'] || row['Temperature'] ? Number(row['TEMP'] || row['Temperature']) : null,
+				bloodPressure: String(row['BP'] || row['Blood Pressure'] || ''),
+				heartRate: row['HEART RATE'] || row['Heart Rate'] ? Number(row['HEART RATE'] || row['Heart Rate']) : null,
+				others: String(row['OTHERS'] || row['Others'] || ''),
+
+				tokenNo: row['TOKEN NO'] || row['Token No'] || '',
+				sentTo: row['SENT TO'] || row['Sent To'] || '',
+				providerName: row['PROVIDER NAME'] || row['Provider Name'] || '',
+				doctorName: row['DOCTOR NAME'] || row['Doctor Name'] || '',
+
+				primaryDiagnosis: row['PRIMARY DIAGNOSIS'] || row['Primary Diagnosis'] || '',
+				secondaryDiagnosis: parseArray(row['SECONDARY DIAGNOSIS'] || row['Secondary Diagnosis']),
+
+				sickLeaveStatus: row['SICK LEAVE STATUS'] || row['Sick Leave Status'] || '',
+				sickLeaveStartDate: parseDate(row['SICK LEAVE START DATE'] || row['SICK LEAVE START DATE']),
+				sickLeaveEndDate: parseDate(row['SICK LEAVE END DATE'] || row['SICK LEAVE END DATE']),
+				totalSickLeaveDays: row['TOTAL SICK LEAVE DAYS'] ? Number(row['TOTAL SICK LEAVE DAYS']) : null,
+				remarks: row['REMARKS'] || row['SICK LEAVE REMARKS'] || '',
+
+				referral: parseBoolean(row['REFERRAL'] || row['REFFERAL']),
+				referralCode: row['REFERRAL CODE'] || row['REFERRAL CODE 1'] || '',
+				referralType: row['REFERRAL TYPE'] || row['REFERRAL TYPE 1'] || '',
+				referredToHospital: row['REFFERED TO - CLINIC/HOS NAME'] || row['REFFERED TO - CLINIC/NOS NAME'] || row['REFFERED TO - CLINIC/NOS NAME 1'] || '',
+				visitDateReferral: parseDate(row['VISIT DATE'] || row['VISIT DATE 1']),
+				specialistType: row['SPECIALIST TYPE'] || row['SPECIALIST TYPE 1'] || '',
+				doctorNameReferral: row['DOCTOR NAME-REF'] || row['DOCTOR NAME-REF 1'] || '',
+				investigationReports: row['INVESTIGATION REPORTS'] || row['INVESTIGATION REPORTS 1'] || '',
+				primaryDiagnosisReferral: row['PRIMARY DIAGNOSIS-REF'] || row['PRIMARY DIAGNOSIS-REF 1'] || '',
+				secondaryDiagnosisReferral: parseArray(row['SECONDARY DIAGNOSIS-REF'] || row['SECONDARY DIAGNOSIS-REF 1']),
+				nurseRemarksReferral: row['NURSE REMARKS'] || row['NURSE REMARKS 1'] || '',
+				insuranceApprovalRequested: parseBoolean(row['INSURANCE APPROVAL REQUESTS'] || row['INSURANCE APPROVAL REQUESTS 1']),
+
+				followUpRequired: parseBoolean(row['FOLLOW UP REQUIRED'] || row['FOLLOW UP REQUIRED 1']),
+				visitStatus: row['VISIT STATUS'] || row['Visit Status'] || '',
+				finalRemarks: row['REMARKS-REF'] || row['FINAL REMARKS'] || '',
+				ipAdmissionRequired: parseBoolean(row['IP ADMISSION'] || row['IP ADMISSION REQUIRED']),
+
+				createdBy: req.user ? req.user._id : null
+			};
+
+			// Medicines
+			const medicines = [];
+			let i = 1;
+			while (true) {
+				const medName = row[`MEDICINE ${i}`];
+				const medCourse = row[`MEDICINE ${i} COURSE`];
+				const medExpiry = row[`EXPIRY DATE ${i}`];
+
+				if (!medName && !medCourse && !medExpiry) {
+					break;
+				}
+
+				medicines.push({
+					name: medName || '',
+					course: medCourse || '',
+					expiryDate: parseDate(medExpiry)
+				});
+				if (i > 20) break;
+				i++;
+			}
+			visitData.medicines = medicines;
+
+			// Follow up visits
+			const followUpVisits = [];
+			let j = 1;
+			while (true) {
+				const nextDateStr = row[`NEXT VISIT DATE ${j}`];
+				const nextRemarksStr = row[`ANY ADDITIONAL INFORMATIONS ${j}`];
+
+				if (!nextDateStr && !nextRemarksStr) {
+					break;
+				}
+
+				followUpVisits.push({
+					visitDate: parseDate(nextDateStr),
+					visitRemarks: nextRemarksStr || ''
+				});
+				if (j > 10) break;
+				j++;
+			}
+			visitData.followUpVisits = followUpVisits;
+
+			// Auto-generate tokenNo if not provided
+			if (!visitData.tokenNo) {
+				const locKey = String(visitData.locationId || "UNKN").toUpperCase().replace(/\s+/g, " ");
+				const locationCodeMap = {
+					"AL QOUZ": "QOZ", "DIC 2": "DIC2", "DIC 3": "DIC3",
+					"DIC 5": "DIC5", "DIP 1": "DIP1", "DIP 2": "DIP2",
+					"JEBAL ALI 1": "JAB1", "JEBAL ALI 2": "JAB2", "JEBAL ALI 3": "JAB3", "JEBAL ALI 4": "JAB4",
+					"KHAWANEEJ": "KWJ", "RUWAYYAH": "RUW", "SAJJA": "SAJJ", "SAIF": "SAIF",
+					"SONAPUR 1": "SONA1", "SONAPUR 2": "SONA2", "SONAPUR 3": "SONA3", "SONAPUR 4": "SONA4",
+					"SONAPUR 5": "SONA5", "RAHABA": "RAH", "SONAPUR 6": "SONA6",
+				};
+				let loc = locationCodeMap[locKey];
+				if (!loc) {
+					loc = String(visitData.locationId || "UNKN").replace(/\s+/g, "").substring(0, 4).toUpperCase();
+				}
+				const d = visitData.date || new Date();
+				const dd = String(d.getDate()).padStart(2, "0");
+				const mm = String(d.getMonth() + 1).padStart(2, "0");
+
+				const sendToValue = String(visitData.sentTo || "").toUpperCase().trim();
+				let locPrefix = loc;
+				if (sendToValue === 'EXTERNAL PROVIDER') {
+					locPrefix = `${loc}XT`;
+				}
+				// We don't have accurate seq during bulk import easily without constant DB calls,
+				// so generating a random sequence or based on index if tokenNo is missing
+				const randomSeq = String(Math.floor(1000 + Math.random() * 9000));
+				visitData.tokenNo = `${locPrefix}-${dd}${mm}-${randomSeq}`;
+			}
+
+			// Auto-generate referralCode
+			if (visitData.referredToHospital && !visitData.referralCode) {
+				visitData.referralCode = `${visitData.tokenNo}-REF`;
+			}
+
+			newVisits.push(visitData);
+		}
+
+		// Save all visits
+		await ClinicVisit.insertMany(newVisits);
+
+		// Delete the uploaded file from temp folder
+		if (req.file && fs.existsSync(req.file.path)) {
+			fs.unlinkSync(req.file.path);
+		}
+
+		return res.status(200).json({
+			success: true,
+			message: `Successfully imported ${newVisits.length} records.`,
+			count: newVisits.length
+		});
+	} catch (err) {
+		// Try to clean up file if it exists
+		if (req.file && fs.existsSync(req.file.path)) {
+			fs.unlinkSync(req.file.path);
+		}
+		next(err);
+	}
+}
+
+export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getEmpSummary, exportToExcel, filterByName, importExcel };

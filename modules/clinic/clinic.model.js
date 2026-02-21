@@ -7,17 +7,18 @@ const ClinicVisitSchema = new mongoose.Schema(
     date: { type: Date, required: true },
     time: { type: String, required: true },
 
-    empNo: { type: String, required: true, index: true  },
-    employeeName: { type: String, required: true, trim: true, index: true  },
-
+    empNo: { type: String, required: true, index: true },
+    employeeName: { type: String, required: true, trim: true, index: true },
+    dateOfJoining: { type: Date },
+    eligibilityForSickLeave: { type: Boolean },
     emiratesId: {
       type: String,
       required: true,
       index: true, // not unique
     },
 
-    insuranceId: { type: String, index: true  },
-    trLocation: { type: String, required: true,  index: true },
+    insuranceId: { type: String, index: true },
+    trLocation: { type: String, required: true, index: true },
     mobileNumber: { type: String, required: true },
 
     natureOfCase: { type: String, required: true },
@@ -32,7 +33,7 @@ const ClinicVisitSchema = new mongoose.Schema(
 
     others: { type: String },
 
-    tokenNo: { type: String, required: true, index: true  },
+    tokenNo: { type: String, required: true, index: true },
     sentTo: { type: String },
     providerName: { type: String },
 
@@ -53,63 +54,43 @@ const ClinicVisitSchema = new mongoose.Schema(
     // SICK LEAVE
     sickLeaveStatus: {
       type: String,
-      enum: ["Approved", "Not Approved"],
     },
     sickLeaveStartDate: { type: Date },
     sickLeaveEndDate: { type: Date },
     totalSickLeaveDays: { type: Number },
     remarks: { type: String },
-
-    // REFERRAL
-    referrals: [
-      {
-        referralCode: { type: String },
-        referralType: { type: String },
-        referredToHospital: { type: String },
-        visitDateReferral: { type: Date },
-        specialistType: { type: String },
-        doctorName: { type: String },
-        investigationReports: { type: String },
-        primaryDiagnosisReferral: { type: String },
-        secondaryDiagnosisReferral: [{ type: String }],
-        nurseRemarksReferral: { type: String },
-        insuranceApprovalRequested: { type: Boolean, default: false },
-        followUpRequired: { type: Boolean, default: false },
-        followUpVisits: [
+    referral: { type: Boolean },
+    referralCode: { type: String },
+    referralType: { type: String },
+    referredToHospital: { type: String },
+    visitDateReferral: { type: Date },
+    specialistType: { type: String },
+    doctorNameReferral: { type: String }, // Renamed to avoid collision with top-level doctorName if we flatten
+    investigationReports: { type: String },
+    primaryDiagnosisReferral: { type: String },
+    secondaryDiagnosisReferral: [{ type: String }],
+    nurseRemarksReferral: { type: String },
+    insuranceApprovalRequested: { type: Boolean, default: false },
+    followUpRequired: { type: Boolean, default: false },
+    followUpVisits: [
       {
         visitDate: { type: Date },
         visitRemarks: { type: String },
       },
     ],
-      },
-    ],
+
 
     visitStatus: {
       type: String,
-      enum: ["Open", "Closed", "Referred", "Other"],
-      default: "Open",
-      index: true, 
+
+      index: true,
     },
 
     finalRemarks: { type: String },
     ipAdmissionRequired: { type: Boolean, default: false },
-    
-    // References to Hospital records
-    hospitalizations: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Hospital',
-      },
-    ],
 
-    // References to Isolation records
-    isolations: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Isolation',
-      },
-    ],
-    
+
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

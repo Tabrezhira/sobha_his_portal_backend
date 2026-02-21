@@ -1,6 +1,10 @@
 import express from "express";
 import controller from "./clinic.controller.js";
 import auth from "../../middleware/auth.js";
+import multer from "multer";
+import os from "os";
+
+const upload = multer({ dest: os.tmpdir() });
 
 const router = express.Router();
 
@@ -11,6 +15,7 @@ const router = express.Router();
 // DELETE /clinic/:id   -> delete visit
 
 router.post("/", auth, controller.createVisit);
+router.post("/import/excel", auth, upload.single("file"), controller.importExcel);
 router.get("/export/excel", controller.exportToExcel);
 router.get("/", controller.getVisits);
 router.get("/summary", controller.getEmpSummary);
