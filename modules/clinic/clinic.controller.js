@@ -724,7 +724,8 @@ async function importExcel(req, res, next) {
 		const workbook = XLSX.readFile(req.file.path, { cellDates: true });
 		const sheetName = workbook.SheetNames[0];
 		const worksheet = workbook.Sheets[sheetName];
-		const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+		// Use raw: false and dateNF to ensure dates don't get shifted by timezone offsets
+		const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "", raw: false, dateNF: "yyyy-mm-dd" });
 
 		if (!jsonData || jsonData.length === 0) {
 			return res.status(400).json({ success: false, message: 'Excel file is empty or invalid' });
@@ -745,52 +746,62 @@ async function importExcel(req, res, next) {
 
 		const parseDate = (val) => {
 			if (!val) return null;
-			const d = new Date(val);
-			return isNaN(d.getTime()) ? null : d;
+			// Since we use dateNF: "yyyy-mm-dd", val is already a string like "2025-12-05"
+			return String(val).trim();
 		};
 
 		const newVisits = [];
 
-		for (const row of jsonData) {
+		for (const rawRow of jsonData) {
+			// Normalize keys to handle typos and extra spaces
+			const row = {};
+			for (const k in rawRow) {
+				let cleanKey = k.trim().replace(/\s+/g, ' ').toUpperCase();
+				cleanKey = cleanKey.replace('MEIDICINE', 'MEDICINE');
+				cleanKey = cleanKey.replace('REFFERED', 'REFERRED');
+				cleanKey = cleanKey.replace('ASSESMENT', 'ASSESSMENT');
+				row[cleanKey] = rawRow[k];
+			}
+
 			// Basic mapping
 			const visitData = {
-				locationId: row['TR LOCATION'] || row['Location'] || (req.user ? req.user.locationId : ''),
-				date: parseDate(row['DATE'] || row['Date']),
-				time: row['TIME'] || row['Time'] || '',
-				empNo: row['EMP NO'] || row['Employee No'] || '',
-				employeeName: row['EMPLOYEE NAME'] || row['Employee Name'] || '',
-				emiratesId: row['EMIRATES ID'] || row['Emirates ID'] || '',
-				insuranceId: row['INSURANCE ID'] || row['Insurance ID'] || '',
-				trLocation: row['TR LOCATION'] || row['Location'] || '',
-				mobileNumber: String(row['MOBILE NUMBER'] || row['Mobile Number'] || ''),
-				natureOfCase: row['NATURE OF CASE'] || row['Nature of Case'] || '',
-				caseCategory: row['CASE CATEGORY'] || row['Case Category'] || '',
+				locationId: row['TR LOCATION'] || row['LOCATION'] || (req.user ? req.user.locationId : ''),
+				date: parseDate(row['DATE']),
+				time: row['TIME'] || '',
+				empNo: row['EMP NO'] || row['EMPLOYEE NO'] || '',
+				employeeName: row['EMPLOYEE NAME'] || '',
+				emiratesId: row['EMIRATES ID'] || '',
+				insuranceId: row['INSURANCE ID'] || '',
+				trLocation: row['TR LOCATION'] || row['LOCATION'] || '',
+				mobileNumber: String(row['MOBILE NUMBER'] || ''),
+				natureOfCase: row['NATURE OF CASE'] || '',
+				caseCategory: row['CASE CATEGORY'] || '',
 
-				nurseAssessment: parseArray(row['NURSE ASSESMENT'] || row['NURSE ASSESSMENT']),
-				symptomDuration: String(row['SYMPTOM DURATION'] || row['Symptom Duration'] || ''),
-				temperature: row['TEMP'] || row['Temperature'] ? Number(row['TEMP'] || row['Temperature']) : null,
-				bloodPressure: String(row['BP'] || row['Blood Pressure'] || ''),
-				heartRate: row['HEART RATE'] || row['Heart Rate'] ? Number(row['HEART RATE'] || row['Heart Rate']) : null,
-				others: String(row['OTHERS'] || row['Others'] || ''),
+				nurseAssessment: parseArray(row['NURSE ASSESSMENT']),
+				symptomDuration: String(row['SYMPTOM DURATION'] || ''),
+				temperature: row['TEMP'] || row['TEMPERATURE'] ? Number(row['TEMP'] || row['TEMPERATURE']) : null,
+				bloodPressure: String(row['BP'] || row['BLOOD PRESSURE'] || ''),
+				heartRate: row['HEART RATE'] ? Number(row['HEART RATE']) : null,
+				others: String(row['OTHERS'] || ''),
 
-				tokenNo: row['TOKEN NO'] || row['Token No'] || '',
-				sentTo: row['SENT TO'] || row['Sent To'] || '',
-				providerName: row['PROVIDER NAME'] || row['Provider Name'] || '',
-				doctorName: row['DOCTOR NAME'] || row['Doctor Name'] || '',
+				tokenNo: row['TOKEN NO'] || '',
+				sentTo: row['SENT TO'] || '',
+				providerName: row['PROVIDER NAME'] || '',
+				doctorName: row['DOCTOR NAME'] || '',
 
-				primaryDiagnosis: row['PRIMARY DIAGNOSIS'] || row['Primary Diagnosis'] || '',
-				secondaryDiagnosis: parseArray(row['SECONDARY DIAGNOSIS'] || row['Secondary Diagnosis']),
+				primaryDiagnosis: row['PRIMARY DIAGNOSIS'] || '',
+				secondaryDiagnosis: parseArray(row['SECONDARY DIAGNOSIS']),
 
-				sickLeaveStatus: row['SICK LEAVE STATUS'] || row['Sick Leave Status'] || '',
-				sickLeaveStartDate: parseDate(row['SICK LEAVE START DATE'] || row['SICK LEAVE START DATE']),
-				sickLeaveEndDate: parseDate(row['SICK LEAVE END DATE'] || row['SICK LEAVE END DATE']),
+				sickLeaveStatus: row['SICK LEAVE STATUS'] || '',
+				sickLeaveStartDate: parseDate(row['SICK LEAVE START DATE']),
+				sickLeaveEndDate: parseDate(row['SICK LEAVE END DATE']),
 				totalSickLeaveDays: row['TOTAL SICK LEAVE DAYS'] ? Number(row['TOTAL SICK LEAVE DAYS']) : null,
 				remarks: row['REMARKS'] || row['SICK LEAVE REMARKS'] || '',
 
-				referral: parseBoolean(row['REFERRAL'] || row['REFFERAL']),
+				referral: parseBoolean(row['REFERRAL']),
 				referralCode: row['REFERRAL CODE'] || row['REFERRAL CODE 1'] || '',
 				referralType: row['REFERRAL TYPE'] || row['REFERRAL TYPE 1'] || '',
-				referredToHospital: row['REFFERED TO - CLINIC/HOS NAME'] || row['REFFERED TO - CLINIC/NOS NAME'] || row['REFFERED TO - CLINIC/NOS NAME 1'] || '',
+				referredToHospital: row['REFERRED TO - CLINIC/HOS NAME'] || row['REFERRED TO - CLINIC/NOS NAME'] || row['REFERRED TO - CLINIC/NOS NAME 1'] || '',
 				visitDateReferral: parseDate(row['VISIT DATE'] || row['VISIT DATE 1']),
 				specialistType: row['SPECIALIST TYPE'] || row['SPECIALIST TYPE 1'] || '',
 				doctorNameReferral: row['DOCTOR NAME-REF'] || row['DOCTOR NAME-REF 1'] || '',
@@ -801,7 +812,7 @@ async function importExcel(req, res, next) {
 				insuranceApprovalRequested: parseBoolean(row['INSURANCE APPROVAL REQUESTS'] || row['INSURANCE APPROVAL REQUESTS 1']),
 
 				followUpRequired: parseBoolean(row['FOLLOW UP REQUIRED'] || row['FOLLOW UP REQUIRED 1']),
-				visitStatus: row['VISIT STATUS'] || row['Visit Status'] || '',
+				visitStatus: row['VISIT STATUS'] || '',
 				finalRemarks: row['REMARKS-REF'] || row['FINAL REMARKS'] || '',
 				ipAdmissionRequired: parseBoolean(row['IP ADMISSION'] || row['IP ADMISSION REQUIRED']),
 
