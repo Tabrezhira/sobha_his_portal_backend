@@ -21,6 +21,7 @@ router.get("/", controller.getVisits);
 router.get("/summary", controller.getEmpSummary);
 router.get("/filter-by-name", controller.filterByName);
 router.get("/my-location", auth, controller.getVisitsByUserLocation);
+router.get("/manager-prioritized", auth, controller.getManagerPrioritizedVisits);
 router.get("/:id", controller.getVisitById);
 router.put("/:id", controller.updateVisit);
 router.delete("/:id", controller.deleteVisit);

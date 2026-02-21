@@ -1,4 +1,5 @@
 import ClinicVisit from './clinic.model.js';
+import MemberFeedback from '../handI/memberFeedback/memberFeedback.model.js';
 import XLSX from 'xlsx';
 import path from 'path';
 import fs from 'fs';
@@ -297,6 +298,172 @@ async function filterByName(req, res, next) {
 				}
 			},
 		});
+	} catch (err) {
+		next(err);
+	}
+}
+
+// Get Prioritized Visits for Manager based on specific criteria
+async function getManagerPrioritizedVisits(req, res, next) {
+	try {
+		// 1. Validation
+		if (!req.user || !req.user._id) {
+			return res.status(401).json({ success: false, message: 'Not authenticated' });
+		}
+
+		const managerLocations = req.user.managerLocation;
+		if (!managerLocations || !Array.isArray(managerLocations) || managerLocations.length === 0) {
+			return res.status(403).json({
+				success: false,
+				message: 'Manager has no assigned locations'
+			});
+		}
+
+		// 2. Fetch Employee feedback to exclude them completely
+		// We get all distinct employee numbers that have EVER provided feedback.
+		// Since MemberFeedback uses 'clinic' as an ObjectId ref to ClinicVisit,
+		// we first need to get those visits to find the empNo, OR if MemberFeedback
+		// had empNo directly, we'd use that. Let's look at MemberFeedback schema:
+		// It has `clinic: { type: ObjectId, ref: 'ClinicVisit' }`.
+		// So we must fetch all MemberFeedbacks, populate 'clinic' to get 'empNo',
+		// and collect those empNos.
+
+		const feedbacks = await MemberFeedback.find({}).populate('clinic', 'empNo');
+		const excludedEmpNos = [...new Set(feedbacks.map(f => f.clinic?.empNo).filter(Boolean))];
+
+		// 3. Date constraints
+		const now = new Date();
+
+		// "Last 30 days"
+		const thirtyDaysAgo = new Date(now);
+		thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+		thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+		// "Older than 5 days" for Rank 3
+		const fiveDaysAgo = new Date(now);
+		fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+		fiveDaysAgo.setHours(0, 0, 0, 0);
+
+		// Format dates as YYYY-MM-DD since ClinicVisit.date is a String
+		const formatDate = (dateValue) => {
+			const d = new Date(dateValue);
+			const year = d.getFullYear();
+			const month = String(d.getMonth() + 1).padStart(2, '0');
+			const day = String(d.getDate()).padStart(2, '0');
+			return `${year}-${month}-${day}`;
+		};
+
+		const thirtyDaysAgoStr = formatDate(thirtyDaysAgo);
+		const fiveDaysAgoStr = formatDate(fiveDaysAgo);
+
+		// 4. Aggregation Pipeline
+		const items = await ClinicVisit.aggregate([
+			{
+				$match: {
+					locationId: { $in: managerLocations },
+					// Lexicographical string comparison works for YYYY-MM-DD
+					date: { $gte: thirtyDaysAgoStr },
+					empNo: { $nin: excludedEmpNos }
+				}
+			},
+			{
+				$group: {
+					_id: '$empNo',
+					empNo: { $first: '$empNo' },
+					employeeName: { $first: '$employeeName' },
+					emiratesId: { $first: '$emiratesId' },
+					mobileNumber: { $first: '$mobileNumber' },
+					trLocation: { $first: '$trLocation' },
+
+					// Count total visits in last 30 days
+					visitCount: { $sum: 1 },
+
+					// Check if any visit had Approved sick leave
+					hasApprovedSickLeave: {
+						$max: {
+							$cond: [{ $eq: ['$sickLeaveStatus', 'Approved'] }, 1, 0]
+						}
+					},
+
+					// Check if any visit was a referral
+					anyReferral: {
+						$max: {
+							$cond: [{ $eq: ['$referral', true] }, 1, 0]
+						}
+					},
+
+					// Find the most recent visit date (string sorting works here too for YYYY-MM-DD)
+					lastVisitDate: { $max: '$date' },
+
+					// Keep all visits for context
+					visits: { $push: '$$ROOT' }
+				}
+			},
+			{
+				$addFields: {
+					rank: {
+						$switch: {
+							branches: [
+								// Rank 1: Multiple visits AND sick leave approved
+								{
+									case: {
+										$and: [
+											{ $gt: ['$visitCount', 1] },
+											{ $eq: ['$hasApprovedSickLeave', 1] }
+										]
+									},
+									then: 1
+								},
+								// Rank 2: Multiple visits BUT sick leave not approved
+								{
+									case: {
+										$and: [
+											{ $gt: ['$visitCount', 1] },
+											{ $eq: ['$hasApprovedSickLeave', 0] }
+										]
+									},
+									then: 2
+								},
+								// Rank 3: Any referral AND last visit older than 5 days
+								{
+									case: {
+										$and: [
+											{ $eq: ['$anyReferral', 1] },
+											{ $lt: ['$lastVisitDate', fiveDaysAgoStr] }
+										]
+									},
+									then: 3
+								}
+							],
+							// Rank 4: Default fallback
+							default: 4
+						}
+					}
+				}
+			},
+			{
+				// Sort by best rank first (1 -> 4), then by most recent last visit
+				$sort: {
+					rank: 1,
+					lastVisitDate: -1
+				}
+			},
+			{
+				// Keep only the top 50
+				$limit: 50
+			}
+		]);
+
+		return res.json({
+			success: true,
+			data: items,
+			meta: {
+				returned: items.length,
+				totalRanked: items.length, // we only know up to 50
+				excludedEmpNosCount: excludedEmpNos.length
+			}
+		});
+
 	} catch (err) {
 		next(err);
 	}
@@ -921,4 +1088,4 @@ async function importExcel(req, res, next) {
 	}
 }
 
-export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getEmpSummary, exportToExcel, filterByName, importExcel };
+export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getManagerPrioritizedVisits, getEmpSummary, exportToExcel, filterByName, importExcel };
