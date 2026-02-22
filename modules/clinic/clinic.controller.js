@@ -99,9 +99,9 @@ async function createVisit(req, res, next) {
 			payload.tokenNo = `${locPrefix}-${dd}${mm}-${seqStr}`;
 		}
 
-		// Auto-generate referralCode if referredToHospital is provided
-		if (payload.referredToHospital && !payload.referralCode) {
-			payload.referralCode = `${payload.tokenNo}-REF`;
+		// Auto-generate referralCode if referral is true or referredToHospital is provided
+		if ((payload.referral || payload.referredToHospital) && !payload.referralCode) {
+			payload.referralCode = payload.tokenNo;
 		}
 
 		const visit = new ClinicVisit(payload);
@@ -499,11 +499,11 @@ async function updateVisit(req, res, next) {
 		const { id } = req.params;
 		const payload = req.body || {};
 
-		// Auto-generate referralCode if referredToHospital is provided in payload
-		if (payload.referredToHospital && !payload.referralCode) {
+		// Auto-generate referralCode if referral is true or referredToHospital is provided in payload
+		if ((payload.referral || payload.referredToHospital) && !payload.referralCode) {
 			const visit = await ClinicVisit.findById(id);
 			if (visit) {
-				payload.referralCode = `${visit.tokenNo}-REF`;
+				payload.referralCode = visit.tokenNo;
 			}
 		}
 
