@@ -26,9 +26,29 @@ async function getIsolations(req, res, next) {
   try {
     const { page = 1, limit = 20, locationId, empNo, emiratesId, dateFrom, dateTo } = req.query;
     const q = {};
-    if (locationId) q.locationId = locationId;
     if (empNo) q.empNo = empNo;
     if (emiratesId) q.emiratesId = emiratesId;
+
+    // Role-based filtering for locationId
+    if (req.user) {
+      if (req.user.role === 'maleNurse') {
+        q.locationId = req.user.locationId;
+      } else if (req.user.role === 'manager' || req.user.role === 'superadmin') {
+        const managerLocs = req.user.managerLocation || [];
+        if (locationId) {
+          // Ensure requested locationId is within their allowed locations
+          q.locationId = managerLocs.includes(locationId) ? locationId : { $in: managerLocs };
+        } else {
+          q.locationId = { $in: managerLocs };
+        }
+      } else {
+        // Fallback if other roles need filtering or just use requested
+        if (locationId) q.locationId = locationId;
+      }
+    } else {
+      if (locationId) q.locationId = locationId;
+    }
+
     if (dateFrom || dateTo) {
       q.dateFrom = {};
       if (dateFrom) q.dateFrom.$gte = new Date(dateFrom);
@@ -40,7 +60,7 @@ async function getIsolations(req, res, next) {
 
     const [total, items] = await Promise.all([
       Isolation.countDocuments(q),
-      Isolation.find(q).sort({ dateFrom: -1, siNo: 1 }).skip((p - 1) * l).limit(l).populate('createdBy', 'name'),
+      Isolation.find(q).sort({ dateFrom: -1, _id: -1 }).skip((p - 1) * l).limit(l).populate('createdBy', 'name'),
     ]);
 
     return res.json({ success: true, data: items, meta: { total, page: p, limit: l } });

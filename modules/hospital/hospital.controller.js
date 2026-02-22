@@ -23,15 +23,34 @@ async function createHospital(req, res, next) {
   }
 }
 
-// List hospitals with optional filters and pagination
 async function getHospitals(req, res, next) {
   try {
     const { page = 1, limit = 20, locationId, empNo, emiratesId, status, startDate, endDate } = req.query;
     const q = {};
-    if (locationId) q.locationId = locationId;
     if (empNo) q.empNo = empNo;
     if (emiratesId) q.emiratesId = emiratesId;
     if (status) q.status = status;
+
+    // Role-based filtering for locationId
+    if (req.user) {
+      if (req.user.role === 'maleNurse') {
+        q.locationId = req.user.locationId;
+      } else if (req.user.role === 'manager' || req.user.role === 'superadmin') {
+        const managerLocs = req.user.managerLocation || [];
+        if (locationId) {
+          // Ensure requested locationId is within their allowed locations
+          q.locationId = managerLocs.includes(locationId) ? locationId : { $in: managerLocs };
+        } else {
+          q.locationId = { $in: managerLocs };
+        }
+      } else {
+        // Fallback if other roles need filtering or just use requested
+        if (locationId) q.locationId = locationId;
+      }
+    } else {
+      if (locationId) q.locationId = locationId;
+    }
+
     if (startDate || endDate) {
       q.dateOfAdmission = {};
       if (startDate) q.dateOfAdmission.$gte = new Date(startDate);
@@ -43,7 +62,7 @@ async function getHospitals(req, res, next) {
 
     const [total, items] = await Promise.all([
       Hospital.countDocuments(q),
-      Hospital.find(q).sort({ dateOfAdmission: -1, sno: 1 }).skip((p - 1) * l).limit(l).populate([
+      Hospital.find(q).sort({ dateOfAdmission: -1, _id: -1 }).skip((p - 1) * l).limit(l).populate([
         { path: 'createdBy', select: 'name' }
       ]),
     ]);

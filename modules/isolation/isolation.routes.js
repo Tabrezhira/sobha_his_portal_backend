@@ -12,7 +12,7 @@ const router = express.Router();
 // GET    /isolation/my-location -> list for authenticated user's location
 
 router.post("/", auth, controller.createIsolation);
-router.get("/", controller.getIsolations);
+router.get("/", auth, controller.getIsolations);
 router.get("/my-location", auth, controller.getIsolationsByUserLocation);
 router.get("/:id", controller.getIsolationById);
 router.put("/:id", auth, controller.updateIsolation);

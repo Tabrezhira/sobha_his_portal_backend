@@ -14,7 +14,7 @@ const router = express.Router();
 // /hospital/employee/search?empNo=E001&date=2026-02-20
 
 router.post("/", auth, controller.createHospital);
-router.get("/", controller.getHospitals);
+router.get("/", auth, controller.getHospitals);
 router.get("/manager/discharge-status", auth, controller.getHospitalsByManagerLocation);
 router.get("/employee/search", controller.getHospitalByEmployeeAndDate);
 router.get("/my-location", auth, controller.getHospitalsByUserLocation);
