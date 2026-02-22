@@ -7,9 +7,6 @@ async function createHospital(req, res, next) {
     if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: 'Not authenticated' });
 
     const payload = req.body || {};
-    
-    // Validate clinicVisitId is provided
-    if (!payload.clinicVisitId) return res.status(400).json({ success: false, message: 'clinicVisitId is required' });
 
     if (payload.createdBy) delete payload.createdBy;
     payload.createdBy = req.user._id;
@@ -18,14 +15,8 @@ async function createHospital(req, res, next) {
     const item = new Hospital(payload);
     const saved = await item.save();
     const populated = await saved.populate([
-      { path: 'createdBy', select: 'name' },
-      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+      { path: 'createdBy', select: 'name' }
     ]);
-    await ClinicVisit.findByIdAndUpdate(
-      saved.clinicVisitId,
-      { $addToSet: { hospitalizations: saved._id } },
-      { new: false }
-    );
     return res.status(201).json({ success: true, data: populated });
   } catch (err) {
     next(err);
@@ -53,8 +44,7 @@ async function getHospitals(req, res, next) {
     const [total, items] = await Promise.all([
       Hospital.countDocuments(q),
       Hospital.find(q).sort({ dateOfAdmission: -1, sno: 1 }).skip((p - 1) * l).limit(l).populate([
-        { path: 'createdBy', select: 'name' },
-        { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+        { path: 'createdBy', select: 'name' }
       ]),
     ]);
 
@@ -69,8 +59,7 @@ async function getHospitalById(req, res, next) {
   try {
     const { id } = req.params;
     const item = await Hospital.findById(id).populate([
-      { path: 'createdBy', select: 'name' },
-      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+      { path: 'createdBy', select: 'name' }
     ]);
     if (!item) return res.status(404).json({ success: false, message: 'Not found' });
     return res.json({ success: true, data: item });
@@ -91,8 +80,7 @@ async function updateHospital(req, res, next) {
     let updated = await Hospital.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
     if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
     updated = await updated.populate([
-      { path: 'createdBy', select: 'name' },
-      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+      { path: 'createdBy', select: 'name' }
     ]);
     return res.json({ success: true, data: updated });
   } catch (err) {
@@ -108,16 +96,8 @@ async function deleteHospital(req, res, next) {
     let deleted = await Hospital.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ success: false, message: 'Not found' });
     deleted = await deleted.populate([
-      { path: 'createdBy', select: 'name' },
-      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+      { path: 'createdBy', select: 'name' }
     ]);
-    if (deleted.clinicVisitId) {
-      await ClinicVisit.findByIdAndUpdate(
-        deleted.clinicVisitId,
-        { $pull: { hospitalizations: deleted._id } },
-        { new: false }
-      );
-    }
     return res.json({ success: true, data: deleted });
   } catch (err) {
     next(err);
@@ -138,8 +118,7 @@ async function getHospitalsByUserLocation(req, res, next) {
     const [total, items] = await Promise.all([
       Hospital.countDocuments({ locationId }),
       Hospital.find({ locationId }).sort({ dateOfAdmission: -1, sno: 1 }).skip((p - 1) * l).limit(l).populate([
-        { path: 'createdBy', select: 'name' },
-        { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+        { path: 'createdBy', select: 'name' }
       ]),
     ]);
 
@@ -154,10 +133,10 @@ async function getHospitalsByUserLocation(req, res, next) {
 async function getHospitalsByManagerLocation(req, res, next) {
   try {
     if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: 'Not authenticated' });
-    
+
     // Get manager locations from JWT
     const managerLocations = req.user.managerLocation || [];
-    
+
     if (!managerLocations || managerLocations.length === 0) {
       return res.status(400).json({ success: false, message: 'Manager has no assigned locations' });
     }
@@ -168,11 +147,11 @@ async function getHospitalsByManagerLocation(req, res, next) {
 
     // Filter hospitals by manager's locationId where status is NOT "Discharge"
     const [total, items] = await Promise.all([
-      Hospital.countDocuments({ 
+      Hospital.countDocuments({
         locationId: { $in: managerLocations },
         status: { $ne: 'Discharge' }
       }),
-      Hospital.find({ 
+      Hospital.find({
         locationId: { $in: managerLocations },
         status: { $ne: 'Discharge' }
       })
@@ -180,8 +159,7 @@ async function getHospitalsByManagerLocation(req, res, next) {
         .skip((p - 1) * l)
         .limit(l)
         .populate([
-          { path: 'createdBy', select: 'name' },
-          { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+          { path: 'createdBy', select: 'name' }
         ]),
     ]);
 
@@ -206,7 +184,7 @@ async function getHospitalByEmployeeAndDate(req, res, next) {
     // Parse the date and create start and end of day
     const startDate = new Date(date);
     startDate.setHours(0, 0, 0, 0);
-    
+
     const endDate = new Date(date);
     endDate.setHours(23, 59, 59, 999);
 
@@ -217,8 +195,7 @@ async function getHospitalByEmployeeAndDate(req, res, next) {
         $lte: endDate
       }
     }).populate([
-      { path: 'createdBy', select: 'name' },
-      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+      { path: 'createdBy', select: 'name' }
     ]);
 
     if (!item) {

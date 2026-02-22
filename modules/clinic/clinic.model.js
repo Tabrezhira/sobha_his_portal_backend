@@ -7,17 +7,15 @@ const ClinicVisitSchema = new mongoose.Schema(
     date: { type: String, },
     time: { type: String, },
 
-    empNo: { type: String, index: true },
-    employeeName: { type: String, trim: true, index: true },
+    empNo: { type: String, index: true, uppercase: true },
+    employeeName: { type: String, trim: true, },
     dateOfJoining: { type: String },
     eligibilityForSickLeave: { type: Boolean },
     emiratesId: {
       type: String,
-
-      index: true, // not unique
     },
 
-    insuranceId: { type: String, index: true },
+    insuranceId: { type: String, },
     trLocation: { type: String, index: true },
     mobileNumber: { type: String, },
 
@@ -54,12 +52,13 @@ const ClinicVisitSchema = new mongoose.Schema(
     // SICK LEAVE
     sickLeaveStatus: {
       type: String,
+      index: true,
     },
     sickLeaveStartDate: { type: String },
     sickLeaveEndDate: { type: String },
     totalSickLeaveDays: { type: String },
     remarks: { type: String },
-    referral: { type: Boolean },
+    referral: { type: Boolean, index: true },
     referralCode: { type: String },
     referralType: { type: String },
     referredToHospital: { type: String },

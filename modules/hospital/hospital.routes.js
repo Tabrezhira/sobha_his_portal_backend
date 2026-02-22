@@ -11,6 +11,7 @@ const router = express.Router();
 // GET    /hospital/:id   -> get single record
 // PUT    /hospital/:id   -> update record (protected)
 // DELETE /hospital/:id   -> delete record (protected)
+// /hospital/employee/search?empNo=E001&date=2026-02-20
 
 router.post("/", auth, controller.createHospital);
 router.get("/", controller.getHospitals);
@@ -22,4 +23,3 @@ router.put("/:id", auth, controller.updateHospital);
 router.delete("/:id", auth, controller.deleteHospital);
 
 export default router;
-// /hospital/employee/search?empNo=E001&date=2026-02-20
