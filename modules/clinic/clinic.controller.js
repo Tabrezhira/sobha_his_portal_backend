@@ -180,8 +180,27 @@ async function getVisits(req, res, next) {
 		if (emiratesId) q.emiratesId = emiratesId;
 		if (empNo) q.empNo = empNo;
 		if (visitStatus) q.visitStatus = visitStatus;
-		if (locationId) q.locationId = locationId;
 		if (tokenNo) q.tokenNo = tokenNo;
+
+		// Role-based filtering for locationId
+		if (req.user) {
+			if (req.user.role === 'maleNurse') {
+				q.locationId = req.user.locationId;
+			} else if (req.user.role === 'manager' || req.user.role === 'superadmin') {
+				const managerLocs = req.user.managerLocation || [];
+				if (locationId) {
+					// Ensure requested locationId is within their allowed locations
+					q.locationId = managerLocs.includes(locationId) ? locationId : { $in: managerLocs };
+				} else {
+					q.locationId = { $in: managerLocs };
+				}
+			} else {
+				// Fallback if other roles need filtering or just use requested
+				if (locationId) q.locationId = locationId;
+			}
+		} else {
+			if (locationId) q.locationId = locationId;
+		}
 
 		// Date range filter
 		if (startDate || endDate) {
@@ -198,7 +217,7 @@ async function getVisits(req, res, next) {
 		const [total, items] = await Promise.all([
 			ClinicVisit.countDocuments(q),
 			ClinicVisit.find(q)
-				.sort({ date: -1, tokenNo: 1 })
+				.sort({ date: -1, time: -1, _id: -1 }) // Sort by newest date and time first
 				.skip((p - 1) * l)
 				.limit(l)
 				.populate('createdBy', 'name'),
