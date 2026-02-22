@@ -284,7 +284,7 @@ async function filterByName(req, res, next) {
 					visitCount: -1
 				}
 			}
-		]);
+		]).allowDiskUse(true);
 
 		return res.json({
 			success: true,
@@ -450,7 +450,7 @@ async function getManagerPrioritizedVisits(req, res, next) {
 				// Keep only the top 50
 				$limit: 50
 			}
-		]);
+		]).allowDiskUse(true);
 
 		// Format items to directly return the last visit details
 		const formattedItems = items.map(item => ({
