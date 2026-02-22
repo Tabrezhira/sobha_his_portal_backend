@@ -81,7 +81,7 @@ const ClinicVisitSchema = new mongoose.Schema(
 
     visitStatus: {
       type: String,
-
+      uppercase: true,
       index: true,
     },
 
