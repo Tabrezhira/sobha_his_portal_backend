@@ -4,12 +4,12 @@ const ClinicVisitSchema = new mongoose.Schema(
   {
     locationId: { type: String, index: true },
 
-    date: { type: String, },
+    date: { type: Date, index: true },
     time: { type: String, },
 
     empNo: { type: String, index: true, uppercase: true },
     employeeName: { type: String, trim: true, },
-    dateOfJoining: { type: String },
+    dateOfJoining: { type: String},
     eligibilityForSickLeave: { type: Boolean },
     emiratesId: {
       type: String,
@@ -45,7 +45,7 @@ const ClinicVisitSchema = new mongoose.Schema(
       {
         name: { type: String },
         course: { type: String },
-        expiryDate: { type: String },
+        expiryDate: { type: Date },
       },
     ],
 
@@ -54,15 +54,15 @@ const ClinicVisitSchema = new mongoose.Schema(
       type: String,
       index: true,
     },
-    sickLeaveStartDate: { type: String },
-    sickLeaveEndDate: { type: String },
+    sickLeaveStartDate: { type: Date },
+    sickLeaveEndDate: { type: Date },
     totalSickLeaveDays: { type: String },
     remarks: { type: String },
     referral: { type: Boolean, index: true },
     referralCode: { type: String },
     referralType: { type: String },
     referredToHospital: { type: String },
-    visitDateReferral: { type: String },
+    visitDateReferral: { type: Date },
     specialistType: { type: String },
     doctorNameReferral: { type: String }, // Renamed to avoid collision with top-level doctorName if we flatten
     investigationReports: { type: String },
@@ -73,7 +73,7 @@ const ClinicVisitSchema = new mongoose.Schema(
     followUpRequired: { type: Boolean, default: false },
     followUpVisits: [
       {
-        visitDate: { type: String },
+        visitDate: { type: Date },
         visitRemarks: { type: String },
       },
     ],

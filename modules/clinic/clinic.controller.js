@@ -561,74 +561,63 @@ async function getVisitsByUserLocation(req, res, next) {
 
 // Get summary for an employee (by empNo)
 async function getEmpSummary(req, res, next) {
-	try {
-		const empNo = req.query.empNo || req.params.empNo;
-		if (!empNo) return res.status(400).json({ success: false, message: 'empNo is required' });
+    try {
+        const rawEmpNo = req.query.empNo || req.params.empNo;
+        if (!rawEmpNo) {
+            return res.status(400).json({ success: false, message: 'empNo is required' });
+        }
 
-		const now = new Date();
-		const last90Start = new Date(now);
-		last90Start.setDate(last90Start.getDate() - 90);
-		last90Start.setHours(0, 0, 0, 0);
+        // empNo is stored uppercase in schema, normalize for accurate matching
+        const empNo = String(rawEmpNo).trim().toUpperCase();
 
-		const [
-			allTimeTotalVisits,
-			last90Visits,
-			sickLeaveApprovedCount,
-			referralAgg,
-		] = await Promise.all([
-			ClinicVisit.countDocuments({ empNo }),
-			ClinicVisit.find({ empNo, date: { $gte: last90Start } })
-				.sort({ date: -1 })
-				.select('date providerName doctorName sentTo'),
-			ClinicVisit.countDocuments({ empNo, sickLeaveStatus: 'Approved' }),
-			ClinicVisit.aggregate([
-				{ $match: { empNo } },
-				{
-					$project: {
-						// 1 if we have a referral, 0 otherwise
-						refCount: {
-							$cond: [{ $or: [{ $ne: ['$referralCode', null] }, { $ne: ['$referredToHospital', null] }, { $eq: ['$referral', true] }] }, 1, 0]
-						},
-						// 1 if followUpRequired is true, 0 otherwise
-						openRefCount: {
-							$cond: [{ $eq: ['$followUpRequired', true] }, 1, 0]
-						},
-					},
-				},
-				{
-					$group: {
-						_id: null,
-						totalReferrals: { $sum: '$refCount' },
-						openReferrals: { $sum: '$openRefCount' },
-					},
-				},
-			]),
-		]);
+        const now = new Date();
+        const last90Start = new Date(now);
+        last90Start.setDate(last90Start.getDate() - 90);
+        last90Start.setHours(0, 0, 0, 0);
 
-		const visitsLast90Days = last90Visits.map((v) => ({
-			date: v.date,
-			provider: v.providerName || v.doctorName || v.sentTo || null,
-		}));
+        const [
+            allTimeTotalVisits,
+            last90Visits,
+            sickLeaveApprovedCount,
+            totalReferrals,
+            openReferrals,
+        ] = await Promise.all([
+            ClinicVisit.countDocuments({ empNo }),
+            ClinicVisit.find({
+                empNo,
+                date: { $gte: last90Start, $lte: now }, // strict 90-day window up to now
+            })
+                .sort({ date: -1, time: -1, _id: -1 })
+                .select('date providerName doctorName sentTo'),
+            ClinicVisit.countDocuments({ empNo, sickLeaveStatus: 'Approved' }),
+            ClinicVisit.countDocuments({ empNo, referral: true }),
+            ClinicVisit.countDocuments({ empNo, referral: true, visitStatus: 'OPEN' }),
+        ]);
 
-		const totals = referralAgg && referralAgg.length ? referralAgg[0] : { totalReferrals: 0, openReferrals: 0 };
+        const visitsLast90Days = last90Visits.map((v) => ({
+            date: v.date,
+            provider: v.providerName || v.doctorName || v.sentTo || null,
+        }));
 
-		return res.json({
-			success: true,
-			data: {
-				empNo,
-				last90Days: {
-					count: last90Visits.length,
-					visits: visitsLast90Days,
-				},
-				allTimeTotalVisits,
-				sickLeaveApprovedCount,
-				totalReferrals: totals.totalReferrals || 0,
-				openReferrals: totals.openReferrals || 0,
-			},
-		});
-	} catch (err) {
-		next(err);
-	}
+        return res.json({
+            success: true,
+            data: {
+                empNo,
+                last90Days: {
+                    from: last90Start,
+                    to: now,
+                    count: last90Visits.length,
+                    visits: visitsLast90Days,
+                },
+                allTimeTotalVisits,
+                sickLeaveApprovedCount,
+                totalReferrals,
+                openReferrals,
+            },
+        });
+    } catch (err) {
+        next(err);
+    }
 }
 
 // Get last 30 days history for an employee
@@ -953,7 +942,7 @@ async function exportToExcel(req, res, next) {
 }
 
 // Import Excel
-async function importExcel(req, res, next) {
+async function importExcelold(req, res, next) {
 	try {
 		if (!req.file) {
 			return res.status(400).json({ success: false, message: 'No file uploaded' });
@@ -1158,5 +1147,178 @@ async function importExcel(req, res, next) {
 		next(err);
 	}
 }
+
+
+
+async function importExcel(req, res, next) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+
+    const workbook = XLSX.readFile(req.file.path, { cellDates: false });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+      defval: "",
+      raw: false,
+      blankrows: false,
+    });
+
+    if (!jsonData.length) {
+      return res.status(400).json({ success: false, message: "Excel file is empty" });
+    }
+
+    const parseBoolean = (val) => {
+      if (!val) return false;
+      const s = String(val).trim().toUpperCase();
+      return ["YES", "TRUE", "1"].includes(s);
+    };
+
+    const parseArray = (val, sep = "|") => {
+      if (!val) return [];
+      return String(val).split(sep).map((v) => v.trim()).filter(Boolean);
+    };
+
+    const parseDate = (val) => {
+      if (!val) return null;
+      const s = String(val).trim();
+      const ddMon = s.match(/^(\d{1,2})[-\/]([A-Za-z]{3})[-\/](\d{4})$/);
+      if (ddMon) {
+        const months = {
+          jan: "01", feb: "02", mar: "03", apr: "04",
+          may: "05", jun: "06", jul: "07", aug: "08",
+          sep: "09", oct: "10", nov: "11", dec: "12",
+        };
+        const dd = ddMon[1].padStart(2, "0");
+        const mm = months[ddMon[2].toLowerCase()];
+        return new Date(`${ddMon[3]}-${mm}-${dd}`);
+      }
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    const newVisits = [];
+
+    for (const rawRow of jsonData) {
+      const row = {};
+      for (const key in rawRow) {
+        let cleanKey = key.trim().replace(/\s+/g, " ").toUpperCase();
+        row[cleanKey] = rawRow[key];
+      }
+
+      const visitData = {
+        locationId: row["TR LOCATION"] || "",
+        date: parseDate(row["DATE"]),
+        time: row["TIME"] || "",
+        empNo: row["EMP NO"] || "",
+        employeeName: row["EMPLOYEE NAME"] || "",
+        emiratesId: row["EMIRATES ID"] || "",
+        insuranceId: row["INSURANCE ID"] || "",
+        trLocation: row["TR LOCATION"] || "",
+        mobileNumber: String(row["MOBILE NUMBER"] || ""),
+        natureOfCase: row["NATURE OF CASE"] || "",
+        caseCategory: row["CASE CATEGORY"] || "",
+
+        nurseAssessment: parseArray(row["NURSE ASSESSMENT"]),
+        symptomDuration: row["SYMPTOM DURATION"] || "",
+        temperature: row["TEMP"] ? Number(row["TEMP"]) : null,
+        bloodPressure: row["BP"] || "",
+        heartRate: row["HEART RATE"] ? Number(row["HEART RATE"]) : null,
+        others: row["OTHERS"] || "",
+
+        tokenNo: row["TOKEN NO"] || "",
+        sentTo: row["SENT TO"] || "",
+        providerName: row["PROVIDER NAME"] || "",
+        doctorName: row["DOCTOR NAME"] || "",
+
+        primaryDiagnosis: row["PRIMARY DIAGNOSIS"] || "",
+        secondaryDiagnosis: parseArray(row["SECONDARY DIAGNOSIS"]),
+
+        sickLeaveStatus: row["SICK LEAVE STATUS"] || "",
+        sickLeaveStartDate: parseDate(row["SICK LEAVE START DATE"]),
+        sickLeaveEndDate: parseDate(row["SICK LEAVE END DATE"]),
+        totalSickLeaveDays: row["TOTAL SICK LEAVE DAYS"] ? Number(row["TOTAL SICK LEAVE DAYS"]) : null,
+        remarks: row["SICK LEAVE REMARKS"] || "",
+
+        referral: parseBoolean(row["REFERRAL"]),
+        referralCode: row["REFERRAL CODE"] || "",
+        referralType: row["REFERRAL TYPE"] || "",
+        referredToHospital: row["REFERRED TO HOSPITAL"] || "",
+        visitDateReferral: parseDate(row["REFERRAL VISIT DATE"]),
+        specialistType: row["SPECIALIST TYPE"] || "",
+        doctorNameReferral: row["REFERRAL DOCTOR NAME"] || "",
+        investigationReports: row["INVESTIGATION REPORTS"] || "",
+        primaryDiagnosisReferral: row["REFERRAL PRIMARY DIAGNOSIS"] || "",
+        secondaryDiagnosisReferral: parseArray(row["REFERRAL SECONDARY DIAGNOSIS"]),
+        nurseRemarksReferral: row["REFERRAL NURSE REMARKS"] || "",
+        insuranceApprovalRequested: parseBoolean(row["INSURANCE APPROVAL REQUESTED"]),
+
+        followUpRequired: parseBoolean(row["FOLLOW UP REQUIRED"]),
+        visitStatus: row["VISIT STATUS"] || "",
+        finalRemarks: row["FINAL REMARKS"] || "",
+        ipAdmissionRequired: parseBoolean(row["IP ADMISSION REQUIRED"]),
+
+        createdBy: req.user ? req.user._id : null,
+      };
+
+      // Medicines
+      const medicines = [];
+      for (let i = 1; i <= 8; i++) {
+        const name = row[`MEDICINE ${i} NAME`];
+        const course = row[`MEDICINE ${i} COURSE`];
+        const expiry = row[`MEDICINE ${i} EXPIRY`];
+
+        if (!name && !course && !expiry) continue;
+
+        medicines.push({
+          name: name || "",
+          course: course || "",
+          expiryDate: parseDate(expiry),
+        });
+      }
+      visitData.medicines = medicines;
+
+      // Follow Up Visits
+      const followUps = [];
+      for (let j = 1; j <= 6; j++) {
+        const dateVal = row[`NEXT VISIT DATE ${j}`];
+        const remarksVal = row[`NEXT VISIT REMARKS ${j}`];
+
+        if (!dateVal && !remarksVal) continue;
+
+        followUps.push({
+          visitDate: parseDate(dateVal),
+          visitRemarks: remarksVal || "",
+        });
+      }
+      visitData.followUpVisits = followUps;
+
+      newVisits.push(visitData);
+    }
+
+    // Insert all
+    await ClinicVisit.insertMany(newVisits, { ordered: false });
+
+    // Cleanup file
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully imported ${newVisits.length} records`,
+      count: newVisits.length,
+    });
+
+  } catch (err) {
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    next(err);
+  }
+}
+
+
+
+
+
 
 export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getManagerPrioritizedVisits, getEmpSummary, getEmpHistory, exportToExcel, filterByName, importExcel };
