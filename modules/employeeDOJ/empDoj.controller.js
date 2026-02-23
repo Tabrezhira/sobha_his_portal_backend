@@ -78,7 +78,7 @@ async function getLeaveEligibilityByEmpNo(req, res, next) {
 
     const item = await EmpDoj.findOne({ empNo })
       .sort({ doj: -1, _id: -1 })
-      .select('empNo sl al el lop');
+      .select('empNo doj sl al el lop');
 
     if (!item) return res.status(404).json({ success: false, message: 'Not found' });
 
