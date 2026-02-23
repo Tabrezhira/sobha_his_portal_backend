@@ -1,5 +1,9 @@
 import Isolation from './isolation.model.js';
 import ClinicVisit from '../clinic/clinic.model.js';
+import XLSX from 'xlsx';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Create isolation record
 async function createIsolation(req, res, next) {
@@ -130,4 +134,140 @@ async function getIsolationsByUserLocation(req, res, next) {
   } catch (err) { next(err); }
 }
 
-export default { createIsolation, getIsolations, getIsolationById, updateIsolation, deleteIsolation, getIsolationsByUserLocation };
+// Import Excel
+async function importExcel(req, res, next) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded",
+      });
+    }
+
+    const workbook = XLSX.readFile(req.file.path, {
+      cellDates: true,
+    });
+
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+      defval: "",
+      raw: false,
+      dateNF: "yyyy-mm-dd",
+    });
+
+    if (!jsonData || jsonData.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is empty or invalid",
+      });
+    }
+
+    // ---------------------------
+    // 🔥 UTC SAFE DATE PARSER
+    // ---------------------------
+
+    const parseDate = (val) => {
+      if (!val) return null;
+
+      // If Excel already gives Date object
+      if (val instanceof Date && !isNaN(val.getTime())) {
+        return new Date(Date.UTC(
+          val.getFullYear(),
+          val.getMonth(),
+          val.getDate()
+        ));
+      }
+
+      const strVal = String(val).trim();
+
+      if (!strVal || strVal.toUpperCase() === "NA" || strVal.toUpperCase() === "N/A") {
+        return null;
+      }
+
+      // ✅ Handle: 4 Dec 2025
+      let match = strVal.match(/^(\d{1,2})\s([A-Za-z]{3})\s(\d{4})$/);
+      if (match) {
+        const months = {
+          jan: 0, feb: 1, mar: 2, apr: 3,
+          may: 4, jun: 5, jul: 6, aug: 7,
+          sep: 8, oct: 9, nov: 10, dec: 11,
+        };
+
+        return new Date(Date.UTC(
+          parseInt(match[3]),
+          months[match[2].toLowerCase()],
+          parseInt(match[1])
+        ));
+      }
+
+      // Fallback (handles most other formats)
+      const parsed = new Date(strVal);
+      if (!isNaN(parsed.getTime())) {
+        return new Date(Date.UTC(
+          parsed.getFullYear(),
+          parsed.getMonth(),
+          parsed.getDate()
+        ));
+      }
+
+      return null;
+    };
+
+    const newIsolations = [];
+
+    for (const rawRow of jsonData) {
+      const row = {};
+
+      for (const k in rawRow) {
+        const cleanKey = k.trim().replace(/\s+/g, " ").toUpperCase();
+        row[cleanKey] = rawRow[k];
+      }
+
+      const isolationData = {
+        locationId: row["TR LOCATION"] || "",
+        clinicVisitToken: row["CLINIC VISIT TOKEN"] || "",
+        empNo: row["EMP NO"] || "",
+        type: row["TYPE"] || "",
+        employeeName: row["EMPLOYEE NAME"] || "",
+        emiratesId: row["EMIRATES ID"] || "",
+        insuranceId: row["INSURANCE ID"] || "",
+        mobileNumber: String(row["MOBILE NUMBER"] || ""),
+        trLocation: row["TR LOCATION"] || "",
+        isolatedIn: row["ISOLATED IN"] || "",
+        isolationReason: row["ISOLATION REASON"] || "",
+        nationality: row["NATIONALITY"] || "",
+        slUpto: String(row["SL UPTO"] || ""),
+
+        dateFrom: parseDate(row["DATE FROM"]),
+        dateTo: parseDate(row["DATE TO"]),
+
+        currentStatus: row["CURRENT STATUS"] || "",
+        remarks: row["REMARKS"] || "",
+        createdBy: req.user ? req.user._id : null,
+      };
+
+      newIsolations.push(isolationData);
+    }
+
+    await Isolation.insertMany(newIsolations, { ordered: false });
+
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully imported ${newIsolations.length} records.`,
+      count: newIsolations.length,
+    });
+  } catch (err) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    next(err);
+  }
+}
+
+export default { createIsolation, getIsolations, getIsolationById, updateIsolation, deleteIsolation, getIsolationsByUserLocation, importExcel };

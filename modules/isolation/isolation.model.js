@@ -9,9 +9,9 @@ const IsolationSchema = new mongoose.Schema({
   empNo: { type: String, required: true, index: true, uppercase: true },
   type: { type: String },
 
-  employeeName: { type: String, required: true, trim: true },
+  employeeName: { type: String, required: true, uppercase: true },
 
-  emiratesId: { type: String, required: true },
+  emiratesId: { type: String },
   insuranceId: { type: String },
 
   mobileNumber: { type: String },
@@ -24,8 +24,8 @@ const IsolationSchema = new mongoose.Schema({
 
   slUpto: { type: String },
 
-  dateFrom: { type: String },
-  dateTo: { type: String },
+  dateFrom: { type: Date },
+  dateTo: { type: Date },
 
   currentStatus: {
     type: String,
