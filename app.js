@@ -42,6 +42,7 @@ import grievanceRoutes from './modules/handI/grievance/grievance.routes.js';
 import happinessSurveyRoutes from './modules/handI/happinessSurvey/happinessSurvey.routes.js';
 import patientRoutes from './modules/patient/patient.routes.js';
 import professionRoutes from './modules/profession/profession.routes.js';
+import empDojRoutes from './modules/employeeDOJ/empDoj.routes.js';
 
 app.use('/api/clinic', clinicRoutes);
 app.use('/api/isolation', isolationRoutes);
@@ -56,6 +57,7 @@ app.use('/api/grievance', grievanceRoutes);
 app.use('/api/happiness-survey', happinessSurveyRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/professions', professionRoutes);
+app.use('/api/emp-doj', empDojRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
