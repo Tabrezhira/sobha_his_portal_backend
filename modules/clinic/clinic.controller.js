@@ -323,7 +323,7 @@ async function filterByName(req, res, next) {
 }
 
 // Get Prioritized Visits for Manager based on specific criteria
-async function getManagerPrioritizedVisits(req, res, next) {
+async function getManagerPrioritizedVisitsOld(req, res, next) {
 	try {
 		// 1. Validation
 		if (!req.user || !req.user._id) {
@@ -493,6 +493,166 @@ async function getManagerPrioritizedVisits(req, res, next) {
 	}
 }
 
+async function getManagerPrioritizedVisits(req, res, next) {
+	try {
+		// 1. Validation
+		if (!req.user || !req.user._id) {
+			return res.status(401).json({ success: false, message: 'Not authenticated' });
+		}
+
+		const managerLocations = req.user.managerLocation;
+		if (!managerLocations || !Array.isArray(managerLocations) || managerLocations.length === 0) {
+			return res.status(403).json({
+				success: false,
+				message: 'Manager has no assigned locations'
+			});
+		}
+
+		// 2. Fetch Employee feedback to exclude them completely
+		const feedbacks = await MemberFeedback.find({}, 'employeeId');
+		const excludedEmpNos = [...new Set(feedbacks.map(f => f.employeeId).filter(Boolean))];
+
+		// 3. Date constraints
+		const now = new Date();
+
+		const thirtyDaysAgo = new Date(now);
+		thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+		thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+		const fiveDaysAgo = new Date(now);
+		fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+		fiveDaysAgo.setHours(0, 0, 0, 0);
+
+		const formatDate = (dateValue) => {
+			const d = new Date(dateValue);
+			const year = d.getFullYear();
+			const month = String(d.getMonth() + 1).padStart(2, '0');
+			const day = String(d.getDate()).padStart(2, '0');
+			return `${year}-${month}-${day}`;
+		};
+
+		const thirtyDaysAgoStr = formatDate(thirtyDaysAgo);
+		const fiveDaysAgoStr = formatDate(fiveDaysAgo);
+
+		// 4. Aggregation Pipeline
+		const items = await ClinicVisit.aggregate([
+			{
+				// Use $expr with $substr to extract YYYY-MM-DD from ISO string for safe comparison
+				$match: {
+					locationId: { $in: managerLocations },
+					empNo: { $nin: excludedEmpNos },
+					$expr: {
+						$gte: [{ $substr: ['$date', 0, 10] }, thirtyDaysAgoStr]
+					}
+				}
+			},
+			{
+				$sort: { date: -1, _id: -1 }
+			},
+			{
+				$group: {
+					_id: '$empNo',
+					empNo: { $first: '$empNo' },
+					employeeName: { $first: '$employeeName' },
+					emiratesId: { $first: '$emiratesId' },
+					mobileNumber: { $first: '$mobileNumber' },
+					trLocation: { $first: '$trLocation' },
+
+					visitCount: { $sum: 1 },
+
+					hasApprovedSickLeave: {
+						$max: {
+							$cond: [{ $eq: ['$sickLeaveStatus', 'Approved'] }, 1, 0]
+						}
+					},
+
+					anyReferral: {
+						$max: {
+							$cond: [{ $eq: ['$referral', true] }, 1, 0]
+						}
+					},
+
+					// Store normalized YYYY-MM-DD for safe comparison later
+					lastVisitDate: { $max: { $substr: ['$date', 0, 10] } },
+
+					lastVisit: { $first: '$$ROOT' }
+				}
+			},
+			{
+				$addFields: {
+					rank: {
+						$switch: {
+							branches: [
+								// Rank 1: Multiple visits AND sick leave approved
+								{
+									case: {
+										$and: [
+											{ $gt: ['$visitCount', 1] },
+											{ $eq: ['$hasApprovedSickLeave', 1] }
+										]
+									},
+									then: 1
+								},
+								// Rank 2: Multiple visits BUT sick leave not approved
+								{
+									case: {
+										$and: [
+											{ $gt: ['$visitCount', 1] },
+											{ $eq: ['$hasApprovedSickLeave', 0] }
+										]
+									},
+									then: 2
+								},
+								// Rank 3: Any referral AND last visit older than 5 days
+								{
+									case: {
+										$and: [
+											{ $eq: ['$anyReferral', 1] },
+											// Compare normalized YYYY-MM-DD strings safely
+											{ $lt: ['$lastVisitDate', fiveDaysAgoStr] }
+										]
+									},
+									then: 3
+								}
+							],
+							// Rank 4: Default fallback
+							default: 4
+						}
+					}
+				}
+			},
+			{
+				$sort: {
+					rank: 1,
+					lastVisitDate: -1
+				}
+			},
+			{
+				$limit: 50
+			}
+		]).allowDiskUse(true);
+
+		// Format items to directly return the last visit details
+		const formattedItems = items.map(item => ({
+			...item.lastVisit,
+			rank: item.rank,
+			visitCount: item.visitCount
+		}));
+
+		return res.json({
+			success: true,
+			data: formattedItems,
+			meta: {
+				returned: formattedItems.length,
+				totalRanked: formattedItems.length,
+				excludedEmpNosCount: excludedEmpNos.length
+			}
+		});
+
+	} catch (err) {
+		next(err);
+	}
+}
 // Update a visit
 async function updateVisit(req, res, next) {
 	try {
