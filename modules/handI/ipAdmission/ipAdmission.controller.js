@@ -2,7 +2,7 @@ import IpAdmission from "./ipAdmission.model.js";
 import Hospital from "../../hospital/hospital.model.js";
 
 const basePopulate = [
-	{ path: "hospitalCase", select: "empNo employeeName hospitalName dateOfAdmission status" }
+    { path: "hospitalCase" }
 ];
 
 const exactFilters = [
