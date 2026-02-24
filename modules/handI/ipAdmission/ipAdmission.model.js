@@ -9,14 +9,15 @@ const technicianVisitSchema = new mongoose.Schema({
 
 const ipAdmissionSchema = new mongoose.Schema(
   {
-  empNo: { type: String, required: true, index: true, uppercase: true },
-  dateOfAdmission: { type: Date },
-  hospitalName: { type: String },
-  hospitalCase:{
-    ref:"Hospital",
-    type: mongoose.Schema.Types.ObjectId,
-    index: true
-  },
+    empNo: { type: String, required: true, index: true, uppercase: true },
+    dateOfAdmission: { type: Date },
+    hospitalName: { type: String },
+    trLocation: { type: String },
+    hospitalCase: {
+      ref: "Hospital",
+      type: mongoose.Schema.Types.ObjectId,
+      index: true
+    },
     hiManagers: { type: String },
 
     admissionMode: { type: String },
