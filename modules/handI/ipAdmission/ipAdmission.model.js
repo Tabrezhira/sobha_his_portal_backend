@@ -1,58 +1,22 @@
 import mongoose from "mongoose";
 
-const followUpSchema = new mongoose.Schema({
-  followUpDate: { type: Date },
-  remarks: { type: String }
-}, { _id: false });
+
 
 const technicianVisitSchema = new mongoose.Schema({
-  visitNumber: { type: Number },
   technicianFeedback: { type: String },
   physicianFeedback: { type: String },
 }, { _id: false });
 
 const ipAdmissionSchema = new mongoose.Schema(
   {
+  empNo: { type: String, required: true, index: true, uppercase: true },
+  dateOfAdmission: { type: Date },
+  hospitalName: { type: String },
   hospitalCase:{
     ref:"Hospital",
     type: mongoose.Schema.Types.ObjectId,
     index: true
   },
-
-    empNo: { type: String, required: true, index: true },
-    name: { type: String, required: true },
-    emiratesId: { type: String, index: true },
-    insuranceId: { type: String },
-
-    trLocation: { type: String },
-    mobileNumber: { type: String },
-    hospitalName: { type: String },
-
-    doa: { type: Date }, // Date of Admission
-    natureOfCase: { type: String },
-    caseCategory: { type: String },
-    caseType: { type: String },
-
-    primaryDiagnosis: { type: String },
-    secondaryDiagnosis: { type: String },
-
-    status: { 
-      type: String,
-    
-    },
-
-    dischargeSummaryReceived: { type: Boolean },
-    dod: { type: Date }, // Date of Discharge
-    noOfDaysHospitalized: { type: Number },
-
-    followUps: [followUpSchema],
-
-    fitnessStatus: { type: String },
-    exitStatus: { type: String },
-
-    isolationOrRehabilitationRequired: { type: Boolean },
-    remarks: { type: String },
-
     hiManagers: { type: String },
 
     admissionMode: { type: String },
@@ -89,7 +53,7 @@ const ipAdmissionSchema = new mongoose.Schema(
     dodHI: { type: Date },
 
     source: { type: String },
-
+    caseTypeChange: { type: String },
     dischargeComments: { type: String },
     caseTypeChangeComments: { type: String }
   },

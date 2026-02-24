@@ -6,19 +6,25 @@ const basePopulate = [
 ];
 
 const exactFilters = [
-	"empNo",
-	"emiratesId",
-	"insuranceId",
-	"trLocation",
-	"caseCategory",
-	"caseType",
-	"status",
+	"hiManagers",
 	"admissionMode",
 	"admissionType",
 	"insuranceApprovalStatus",
-	"hiManagers",
-	"source"
+	"treatmentUndergone",
+	"imVisitStatus",
+	"treatmentLocation",
+	"placeOfLocation",
+	"postRecoveryLocation",
+	"fitToTravel",
+	"postRehabRequired",
+	"followUpRequired",
+	"rehabExtension",
+	"dischargedHI",
+	"source",
+	"caseTypeChange"
 ];
+
+const numberFilters = ["noOfVisits", "durationOfRehab", "rehabExtensionDuration"];
 
 const parseDate = (value) => {
 	if (!value) return null;
@@ -30,7 +36,20 @@ function buildFilters(query) {
 	const filters = {};
 
 	exactFilters.forEach((key) => {
-		if (query[key]) filters[key] = query[key];
+		if (query[key] !== undefined && query[key] !== "") {
+			if (["fitToTravel", "postRehabRequired", "followUpRequired", "rehabExtension", "dischargedHI"].includes(key)) {
+				filters[key] = String(query[key]).toLowerCase() === "true";
+			} else {
+				filters[key] = query[key];
+			}
+		}
+	});
+
+	numberFilters.forEach((key) => {
+		if (query[key] !== undefined && query[key] !== "") {
+			const value = Number(query[key]);
+			if (!Number.isNaN(value)) filters[key] = value;
+		}
 	});
 
 	if (query.hospitalCase) filters.hospitalCase = query.hospitalCase;
@@ -40,31 +59,55 @@ function buildFilters(query) {
 		if (term) {
 			const regex = new RegExp(term, "i");
 			filters.$or = [
-				{ name: regex },
-				{ empNo: regex },
-				{ emiratesId: regex },
-				{ insuranceId: regex }
+				{ hiManagers: regex },
+				{ treatmentUndergone: regex },
+				{ technicianFeedbackForm: regex },
+				{ source: regex },
+				{ caseTypeChange: regex },
+				{ dischargeComments: regex },
+				{ caseTypeChangeComments: regex },
+				{ "technicianVisits.technicianFeedback": regex },
+				{ "technicianVisits.physicianFeedback": regex }
 			];
 		}
 	}
 
-	const doaFrom = parseDate(query.doaFrom || query.startDate);
-	const doaTo = parseDate(query.doaTo || query.endDate);
-	if (doaFrom || doaTo) {
-		filters.doa = {};
-		if (doaFrom) filters.doa.$gte = doaFrom;
-		if (doaTo) filters.doa.$lte = doaTo;
+	const memberResumeFrom = parseDate(query.memberResumeFrom || query.startDate);
+	const memberResumeTo = parseDate(query.memberResumeTo || query.endDate);
+	if (memberResumeFrom || memberResumeTo) {
+		filters.memberResumeToWork = {};
+		if (memberResumeFrom) filters.memberResumeToWork.$gte = memberResumeFrom;
+		if (memberResumeTo) filters.memberResumeToWork.$lte = memberResumeTo;
 	}
 
-	const dodFrom = parseDate(query.dodFrom);
-	const dodTo = parseDate(query.dodTo);
-	if (dodFrom || dodTo) {
-		filters.dod = {};
-		if (dodFrom) filters.dod.$gte = dodFrom;
-		if (dodTo) filters.dod.$lte = dodTo;
+	const dodHiFrom = parseDate(query.dodHiFrom || query.dodFrom);
+	const dodHiTo = parseDate(query.dodHiTo || query.dodTo);
+	if (dodHiFrom || dodHiTo) {
+		filters.dodHI = {};
+		if (dodHiFrom) filters.dodHI.$gte = dodHiFrom;
+		if (dodHiTo) filters.dodHI.$lte = dodHiTo;
+	}
+
+	const createdFrom = parseDate(query.createdFrom);
+	const createdTo = parseDate(query.createdTo);
+	if (createdFrom || createdTo) {
+		filters.createdAt = {};
+		if (createdFrom) filters.createdAt.$gte = createdFrom;
+		if (createdTo) filters.createdAt.$lte = createdTo;
 	}
 
 	return filters;
+}
+
+const isNonEmptyString = (value) => typeof value === "string" && value.trim() !== "";
+
+function normalizeTechnicianVisits(value) {
+	if (!Array.isArray(value)) return null;
+
+	return value.map((item) => ({
+		technicianFeedback: isNonEmptyString(item?.technicianFeedback) ? item.technicianFeedback.trim() : undefined,
+		physicianFeedback: isNonEmptyString(item?.physicianFeedback) ? item.physicianFeedback.trim() : undefined
+	}));
 }
 
 async function ensureHospitalExists(hospitalId) {
@@ -88,6 +131,102 @@ async function createIpAdmission(req, res, next) {
 		}
 
 		const record = new IpAdmission(payload);
+		const saved = await record.save();
+		const populated = await saved.populate(basePopulate);
+		return res.status(201).json({ success: true, data: populated });
+	} catch (err) {
+		next(err);
+	}
+}
+
+async function createFromHospitalCase(req, res, next) {
+	try {
+		if (!req.user || !req.user._id) {
+			return res.status(401).json({ success: false, message: "Not authenticated" });
+		}
+
+		const payload = req.body || {};
+		const { hospitalCase, hiManagers, caseTypeChange } = payload;
+
+		if (!hospitalCase) {
+			return res.status(400).json({ success: false, message: "hospitalCase is required" });
+		}
+
+		if (!isNonEmptyString(hiManagers) || !isNonEmptyString(caseTypeChange)) {
+			return res.status(422).json({
+				success: false,
+				message: "hiManagers and caseTypeChange are required"
+			});
+		}
+
+		const hospital = await Hospital.findById(hospitalCase).select("empNo employeeName hospitalName dateOfAdmission");
+		if (!hospital) {
+			return res.status(404).json({ success: false, message: "Referenced hospitalCase not found" });
+		}
+
+		if (!isNonEmptyString(hospital.empNo)) {
+			return res.status(422).json({ success: false, message: "Referenced hospitalCase has no empNo" });
+		}
+
+		const createPayload = {
+			hospitalCase,
+			empNo: hospital.empNo,
+			hiManagers: hiManagers.trim(),
+			caseTypeChange: caseTypeChange.trim(),
+			hospitalName: payload.hospitalName || hospital.hospitalName,
+			dateOfAdmission: payload.dateOfAdmission || hospital.dateOfAdmission
+		};
+
+		const record = new IpAdmission(createPayload);
+		const saved = await record.save();
+		const populated = await saved.populate(basePopulate);
+		const response = populated.toObject ? populated.toObject() : populated;
+		response.employeeName = hospital.employeeName || null;
+
+		return res.status(201).json({ success: true, data: response });
+	} catch (err) {
+		next(err);
+	}
+}
+
+async function createManualNewVisit(req, res, next) {
+	try {
+		if (!req.user || !req.user._id) {
+			return res.status(401).json({ success: false, message: "Not authenticated" });
+		}
+
+		const payload = req.body || {};
+		const requiredFields = [
+			"empNo",
+			"hiManagers",
+			"caseTypeChange",
+			"hospitalName",
+			"dateOfAdmission",
+			"treatmentUndergone"
+		];
+
+		for (const key of requiredFields) {
+			if (!isNonEmptyString(payload[key])) {
+				return res.status(422).json({ success: false, message: `${key} is required` });
+			}
+		}
+
+		const technicianVisits = normalizeTechnicianVisits(payload.technicianVisits);
+		if (!technicianVisits) {
+			return res.status(422).json({ success: false, message: "technicianVisits must be an array" });
+		}
+
+		const createPayload = {
+			empNo: payload.empNo.trim(),
+			hiManagers: payload.hiManagers.trim(),
+			caseTypeChange: payload.caseTypeChange.trim(),
+			hospitalName: payload.hospitalName.trim(),
+			dateOfAdmission: payload.dateOfAdmission,
+			technicianVisits,
+			treatmentUndergone: payload.treatmentUndergone.trim()
+		};
+
+		const record = new IpAdmission(createPayload);
 		const saved = await record.save();
 		const populated = await saved.populate(basePopulate);
 		return res.status(201).json({ success: true, data: populated });
@@ -170,6 +309,8 @@ async function deleteIpAdmission(req, res, next) {
 
 export default {
 	createIpAdmission,
+	createFromHospitalCase,
+	createManualNewVisit,
 	getIpAdmissions,
 	getIpAdmissionById,
 	updateIpAdmission,
