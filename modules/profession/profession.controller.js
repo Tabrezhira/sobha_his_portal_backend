@@ -113,7 +113,7 @@ export const createProfession = async (req, res) => {
 
 // POST upload excel
 
-export const uploadExcel = async (req, res) => {
+export const uploadExcelOld = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "No file uploaded" });
   }
@@ -186,6 +186,65 @@ export const uploadExcel = async (req, res) => {
       message: "Upload failed",
       error: error.message,
     });
+  }
+};
+
+export const uploadExcel = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: "No file uploaded" });
+  }
+
+  const BATCH_SIZE = 20000;
+  let batch = [];
+  let insertedCount = 0;
+
+  try {
+    const workbookReader = new ExcelJS.stream.xlsx.WorkbookReader(
+      fs.createReadStream(req.file.path)
+    );
+
+    for await (const worksheet of workbookReader) {
+      let headers = {};
+
+      for await (const row of worksheet) {
+        if (row.number === 1) {
+          row.eachCell((cell, colNumber) => {
+            headers[colNumber] = String(cell.value).trim().toLowerCase();
+          });
+          continue;
+        }
+
+        let name = "", category = "";
+
+        row.eachCell((cell, colNumber) => {
+          if (headers[colNumber] === "name")     name     = String(cell.value || "").trim();
+          if (headers[colNumber] === "category") category = String(cell.value || "").trim();
+        });
+
+        if (!name) continue;
+
+        batch.push({ name, category });
+
+        if (batch.length === BATCH_SIZE) {
+          await Profession.insertMany(batch, { ordered: false });
+          insertedCount += batch.length;
+          batch = [];
+        }
+      }
+    }
+
+    if (batch.length) {
+      await Profession.insertMany(batch, { ordered: false });
+      insertedCount += batch.length;
+    }
+
+    fs.unlinkSync(req.file.path);
+    res.status(200).json({ message: "Upload successful", totalInserted: insertedCount });
+
+  } catch (error) {
+    console.error(error);
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ message: "Upload failed", error: error.message });
   }
 };
 
