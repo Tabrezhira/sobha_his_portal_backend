@@ -146,16 +146,111 @@ async function createFromHospitalCase(req, res, next) {
 		}
 
 		const payload = req.body || {};
-		const { hospitalCase, hiManagers, caseTypeChange } = payload;
+		const { hospitalCase } = payload;
 
 		if (!hospitalCase) {
 			return res.status(400).json({ success: false, message: "hospitalCase is required" });
 		}
 
-		if (!isNonEmptyString(hiManagers) || !isNonEmptyString(caseTypeChange)) {
+		const requiredStringFields = [
+			"hiManagers",
+			"admissionMode",
+			"admissionType",
+			"insuranceApprovalStatus",
+			"treatmentUndergone",
+			"imVisitStatus",
+			"treatmentLocation",
+			"placeOfLocation",
+			"postRecoveryLocation"
+		];
+
+		for (const key of requiredStringFields) {
+			if (!isNonEmptyString(payload[key])) {
+				return res.status(422).json({ success: false, message: `${key} is required` });
+			}
+		}
+
+		if (payload.noOfVisits === undefined || payload.noOfVisits === null || payload.noOfVisits === "") {
+			return res.status(422).json({ success: false, message: "noOfVisits is required" });
+		}
+
+		const noOfVisits = Number(payload.noOfVisits);
+		if (Number.isNaN(noOfVisits)) {
+			return res.status(422).json({ success: false, message: "noOfVisits must be a valid number" });
+		}
+
+		if (
+			payload.durationOfRehab === undefined ||
+			payload.durationOfRehab === null ||
+			payload.durationOfRehab === ""
+		) {
+			return res.status(422).json({ success: false, message: "durationOfRehab is required" });
+		}
+
+		const durationOfRehab = Number(payload.durationOfRehab);
+		if (Number.isNaN(durationOfRehab)) {
+			return res.status(422).json({ success: false, message: "durationOfRehab must be a valid number" });
+		}
+
+		if (
+			payload.rehabExtensionDuration === undefined ||
+			payload.rehabExtensionDuration === null ||
+			payload.rehabExtensionDuration === ""
+		) {
+			return res.status(422).json({ success: false, message: "rehabExtensionDuration is required" });
+		}
+
+		const rehabExtensionDuration = Number(payload.rehabExtensionDuration);
+		if (Number.isNaN(rehabExtensionDuration)) {
+			return res.status(422).json({ success: false, message: "rehabExtensionDuration must be a valid number" });
+		}
+
+		const requiredBooleanFields = ["fitToTravel", "postRehabRequired", "followUpRequired", "rehabExtension"];
+		const parsedBooleanPayload = {};
+		for (const key of requiredBooleanFields) {
+			if (payload[key] === undefined || payload[key] === null || payload[key] === "") {
+				return res.status(422).json({ success: false, message: `${key} is required` });
+			}
+
+			if (typeof payload[key] === "boolean") {
+				parsedBooleanPayload[key] = payload[key];
+				continue;
+			}
+
+			if (typeof payload[key] === "string") {
+				const normalized = payload[key].trim().toLowerCase();
+				if (normalized === "true" || normalized === "false") {
+					parsedBooleanPayload[key] = normalized === "true";
+					continue;
+				}
+			}
+
+			return res.status(422).json({ success: false, message: `${key} must be a boolean` });
+		}
+
+		if (!payload.memberResumeToWork) {
+			return res.status(422).json({ success: false, message: "memberResumeToWork is required" });
+		}
+
+		const memberResumeToWork = parseDate(payload.memberResumeToWork);
+		if (!memberResumeToWork) {
+			return res.status(422).json({ success: false, message: "memberResumeToWork must be a valid date" });
+		}
+
+		const technicianVisits = normalizeTechnicianVisits(payload.technicianVisits);
+		if (!technicianVisits) {
+			return res.status(422).json({ success: false, message: "technicianVisits must be an array" });
+		}
+
+		if (
+			technicianVisits.length === 0 ||
+			technicianVisits.some(
+				(item) => !isNonEmptyString(item?.technicianFeedback) || !isNonEmptyString(item?.physicianFeedback)
+			)
+		) {
 			return res.status(422).json({
 				success: false,
-				message: "hiManagers and caseTypeChange are required"
+				message: "Each technicianVisits item must include technicianFeedback and physicianFeedback"
 			});
 		}
 
@@ -171,8 +266,25 @@ async function createFromHospitalCase(req, res, next) {
 		const createPayload = {
 			hospitalCase,
 			empNo: hospital.empNo,
-			hiManagers: hiManagers.trim(),
-			caseTypeChange: caseTypeChange.trim(),
+			hiManagers: payload.hiManagers.trim(),
+			admissionMode: payload.admissionMode.trim(),
+			admissionType: payload.admissionType.trim(),
+			insuranceApprovalStatus: payload.insuranceApprovalStatus.trim(),
+			treatmentUndergone: payload.treatmentUndergone.trim(),
+			imVisitStatus: payload.imVisitStatus.trim(),
+			noOfVisits,
+			technicianVisits,
+			treatmentLocation: payload.treatmentLocation.trim(),
+			placeOfLocation: payload.placeOfLocation.trim(),
+			postRecoveryLocation: payload.postRecoveryLocation.trim(),
+			fitToTravel: parsedBooleanPayload.fitToTravel,
+			postRehabRequired: parsedBooleanPayload.postRehabRequired,
+			durationOfRehab,
+			followUpRequired: parsedBooleanPayload.followUpRequired,
+			rehabExtension: parsedBooleanPayload.rehabExtension,
+			rehabExtensionDuration,
+			memberResumeToWork,
+			caseTypeChange: isNonEmptyString(payload.caseTypeChange) ? payload.caseTypeChange.trim() : undefined,
 			hospitalName: payload.hospitalName || hospital.hospitalName,
 			dateOfAdmission: payload.dateOfAdmission || hospital.dateOfAdmission
 		};
