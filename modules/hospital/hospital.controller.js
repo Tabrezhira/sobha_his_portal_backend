@@ -2,6 +2,7 @@ import Hospital from './hospital.model.js';
 import ClinicVisit from '../clinic/clinic.model.js';
 import XLSX from 'xlsx';
 import fs from 'fs';
+import IpAdmission from '../handI/ipAdmission/ipAdmission.model.js'; // add
 
 // Create a new hospital record
 async function createHospital(req, res, next) {
@@ -155,7 +156,6 @@ async function getHospitalsByManagerLocation(req, res, next) {
   try {
     if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: 'Not authenticated' });
 
-    // Get manager locations from JWT
     const managerLocations = req.user.managerLocation || [];
 
     if (!managerLocations || managerLocations.length === 0) {
@@ -166,16 +166,18 @@ async function getHospitalsByManagerLocation(req, res, next) {
     const p = Math.max(1, parseInt(page, 10));
     const l = Math.max(1, parseInt(limit, 10));
 
-    // Filter hospitals by manager's locationId where status is NOT "Discharge"
+    // find all hospital refs used in IpAdmission
+    const usedHospitalIds = await IpAdmission.distinct('hospitalCase', { hospitalCase: { $ne: null } });
+
+    const baseQuery = {
+      locationId: { $in: managerLocations },
+      status: { $ne: 'Discharge' },
+      ...(usedHospitalIds.length ? { _id: { $nin: usedHospitalIds } } : {})
+    };
+
     const [total, items] = await Promise.all([
-      Hospital.countDocuments({
-        locationId: { $in: managerLocations },
-        status: { $ne: 'Discharge' }
-      }),
-      Hospital.find({
-        locationId: { $in: managerLocations },
-        status: { $ne: 'Discharge' }
-      })
+      Hospital.countDocuments(baseQuery),
+      Hospital.find(baseQuery)
         .sort({ dateOfAdmission: -1, sno: 1 })
         .skip((p - 1) * l)
         .limit(l)
