@@ -143,22 +143,34 @@ async function createIpAdmission(req, res, next) {
 
 async function createFromHospitalCase(req, res, next) {
     try {
+        /* =====================================================
+           1️⃣ AUTH VALIDATION
+        ====================================================== */
         if (!req.user || !req.user._id) {
-            return res.status(401).json({ success: false, message: "Not authenticated" });
+            return res.status(401).json({
+                success: false,
+                message: "Not authenticated"
+            });
         }
 
         const payload = req.body || {};
         const { hospitalCase } = payload;
 
         if (!hospitalCase) {
-            return res.status(400).json({ success: false, message: "hospitalCase is required" });
+            return res.status(400).json({
+                success: false,
+                message: "hospitalCase is required"
+            });
         }
 
+        /* =====================================================
+           2️⃣ REQUIRED STRING FIELDS
+        ====================================================== */
         const requiredStringFields = [
             "hiManagers",
             "admissionMode",
             "admissionType",
-			"trLocation",
+            "trLocation",
             "insuranceApprovalStatus",
             "treatmentUndergone",
             "imVisitStatus",
@@ -168,96 +180,201 @@ async function createFromHospitalCase(req, res, next) {
         ];
 
         for (const key of requiredStringFields) {
-            if (!isNonEmptyString(payload[key])) {
-                return res.status(422).json({ success: false, message: `${key} is required` });
+            if (
+                payload[key] === undefined ||
+                payload[key] === null ||
+                payload[key].toString().trim() === ""
+            ) {
+                return res.status(422).json({
+                    success: false,
+                    message: `${key} is required`
+                });
             }
         }
 
-        if (payload.noOfVisits === undefined || payload.noOfVisits === null || payload.noOfVisits === "") {
-            return res.status(422).json({ success: false, message: "noOfVisits is required" });
+        /* =====================================================
+           3️⃣ NUMBER VALIDATION
+        ====================================================== */
+        const validateNumberField = (fieldName) => {
+            if (
+                payload[fieldName] === undefined ||
+                payload[fieldName] === null ||
+                payload[fieldName] === ""
+            ) {
+                return `${fieldName} is required`;
+            }
+
+            const value = Number(payload[fieldName]);
+
+            if (Number.isNaN(value)) {
+                return `${fieldName} must be a valid number`;
+            }
+
+            if (value < 0) {
+                return `${fieldName} cannot be negative`;
+            }
+
+            return null;
+        };
+
+        const numberFields = [
+            "noOfVisits",
+            "durationOfRehab",
+            "rehabExtensionDuration"
+        ];
+
+        for (const field of numberFields) {
+            const error = validateNumberField(field);
+            if (error) {
+                return res.status(422).json({
+                    success: false,
+                    message: error
+                });
+            }
         }
 
         const noOfVisits = Number(payload.noOfVisits);
-        if (Number.isNaN(noOfVisits)) {
-            return res.status(422).json({ success: false, message: "noOfVisits must be a valid number" });
-        }
-
-        if (
-            payload.durationOfRehab === undefined ||
-            payload.durationOfRehab === null ||
-            payload.durationOfRehab === ""
-        ) {
-            return res.status(422).json({ success: false, message: "durationOfRehab is required" });
-        }
-
         const durationOfRehab = Number(payload.durationOfRehab);
-        if (Number.isNaN(durationOfRehab)) {
-            return res.status(422).json({ success: false, message: "durationOfRehab must be a valid number" });
-        }
-
-        if (
-            payload.rehabExtensionDuration === undefined ||
-            payload.rehabExtensionDuration === null ||
-            payload.rehabExtensionDuration === ""
-        ) {
-            return res.status(422).json({ success: false, message: "rehabExtensionDuration is required" });
-        }
-
         const rehabExtensionDuration = Number(payload.rehabExtensionDuration);
-        if (Number.isNaN(rehabExtensionDuration)) {
-            return res.status(422).json({ success: false, message: "rehabExtensionDuration must be a valid number" });
-        }
 
-        const requiredBooleanFields = ["fitToTravel", "postRehabRequired", "followUpRequired", "rehabExtension"];
+        /* =====================================================
+           4️⃣ BOOLEAN VALIDATION
+        ====================================================== */
+        const requiredBooleanFields = [
+            "fitToTravel",
+            "postRehabRequired",
+            "followUpRequired",
+            "rehabExtension"
+        ];
+
         const parsedBooleanPayload = {};
+
         for (const key of requiredBooleanFields) {
-            if (payload[key] === undefined || payload[key] === null || payload[key] === "") {
-                return res.status(422).json({ success: false, message: `${key} is required` });
+            const value = payload[key];
+
+            if (value === undefined || value === null || value === "") {
+                return res.status(422).json({
+                    success: false,
+                    message: `${key} is required`
+                });
             }
 
-            if (typeof payload[key] === "boolean") {
-                parsedBooleanPayload[key] = payload[key];
+            if (typeof value === "boolean") {
+                parsedBooleanPayload[key] = value;
                 continue;
             }
 
-            if (typeof payload[key] === "string") {
-                const normalized = payload[key].trim().toLowerCase();
+            if (typeof value === "string") {
+                const normalized = value.trim().toLowerCase();
                 if (normalized === "true" || normalized === "false") {
                     parsedBooleanPayload[key] = normalized === "true";
                     continue;
                 }
             }
 
-            return res.status(422).json({ success: false, message: `${key} must be a boolean` });
+            return res.status(422).json({
+                success: false,
+                message: `${key} must be a boolean`
+            });
         }
 
-        if (!payload.memberResumeToWork) {
-            return res.status(422).json({ success: false, message: "memberResumeToWork is required" });
+        /* =====================================================
+           5️⃣ DATE VALIDATION
+        ====================================================== */
+
+        if (
+            payload.memberResumeToWork === undefined ||
+            payload.memberResumeToWork === null ||
+            payload.memberResumeToWork === ""
+        ) {
+            return res.status(422).json({
+                success: false,
+                message: "memberResumeToWork is required"
+            });
         }
 
         const memberResumeToWork = parseDate(payload.memberResumeToWork);
+
         if (!memberResumeToWork) {
-            return res.status(422).json({ success: false, message: "memberResumeToWork must be a valid date" });
+            return res.status(422).json({
+                success: false,
+                message: "memberResumeToWork must be a valid date"
+            });
         }
 
+        // Optional date: dodHI
+        let dodHI;
+        if (payload.dodHI !== undefined && payload.dodHI !== null && payload.dodHI !== "") {
+            dodHI = parseDate(payload.dodHI);
+            if (!dodHI) {
+                return res.status(422).json({
+                    success: false,
+                    message: "dodHI must be a valid date"
+                });
+            }
+        }
+
+        /* =====================================================
+           6️⃣ TECHNICIAN VISITS VALIDATION
+        ====================================================== */
+
         const technicianVisits = normalizeTechnicianVisits(payload.technicianVisits);
-        if (!technicianVisits) {
-            return res.status(422).json({ success: false, message: "technicianVisits must be an array" });
+
+        if (!Array.isArray(technicianVisits)) {
+            return res.status(422).json({
+                success: false,
+                message: "technicianVisits must be an array"
+            });
         }
 
         if (
             technicianVisits.length === 0 ||
             technicianVisits.some(
-                (item) => !isNonEmptyString(item?.technicianFeedback) || !isNonEmptyString(item?.physicianFeedback)
+                (item) =>
+                    !item ||
+                    !item.technicianFeedback ||
+                    !item.physicianFeedback
             )
         ) {
             return res.status(422).json({
                 success: false,
-                message: "Each technicianVisits item must include technicianFeedback and physicianFeedback"
+                message:
+                    "Each technicianVisits item must include technicianFeedback and physicianFeedback"
             });
         }
 
-        // optional boolean: dischargedHI
+        /* =====================================================
+           7️⃣ BUSINESS RULE VALIDATION
+        ====================================================== */
+
+        if (!parsedBooleanPayload.rehabExtension && rehabExtensionDuration > 0) {
+            return res.status(422).json({
+                success: false,
+                message:
+                    "rehabExtensionDuration must be 0 when rehabExtension is false"
+            });
+        }
+
+        if (!parsedBooleanPayload.postRehabRequired && durationOfRehab > 0) {
+            return res.status(422).json({
+                success: false,
+                message:
+                    "durationOfRehab must be 0 when postRehabRequired is false"
+            });
+        }
+
+        if (!parsedBooleanPayload.followUpRequired && technicianVisits.length > 0) {
+            return res.status(422).json({
+                success: false,
+                message:
+                    "technicianVisits not allowed when followUpRequired is false"
+            });
+        }
+
+        /* =====================================================
+           8️⃣ OPTIONAL BOOLEAN
+        ====================================================== */
+
         let dischargedHI;
         if (payload.dischargedHI !== undefined && payload.dischargedHI !== null && payload.dischargedHI !== "") {
             if (typeof payload.dischargedHI === "boolean") {
@@ -267,34 +384,60 @@ async function createFromHospitalCase(req, res, next) {
                 if (normalized === "true" || normalized === "false") {
                     dischargedHI = normalized === "true";
                 } else {
-                    return res.status(422).json({ success: false, message: "dischargedHI must be a boolean" });
+                    return res.status(422).json({
+                        success: false,
+                        message: "dischargedHI must be a boolean"
+                    });
                 }
-            } else {
-                return res.status(422).json({ success: false, message: "dischargedHI must be a boolean" });
             }
         }
 
-        // optional date: dodHI
-        let dodHI;
-        if (payload.dodHI !== undefined && payload.dodHI !== null && payload.dodHI !== "") {
-            dodHI = parseDate(payload.dodHI);
-            if (!dodHI) {
-                return res.status(422).json({ success: false, message: "dodHI must be a valid date" });
-            }
-        }
+        /* =====================================================
+           9️⃣ FETCH HOSPITAL REFERENCE
+        ====================================================== */
 
-        const hospital = await Hospital.findById(hospitalCase).select("empNo employeeName hospitalName dateOfAdmission");
+        const hospital = await Hospital.findById(hospitalCase)
+            .select("empNo employeeName hospitalName dateOfAdmission");
+
         if (!hospital) {
-            return res.status(404).json({ success: false, message: "Referenced hospitalCase not found" });
+            return res.status(404).json({
+                success: false,
+                message: "Referenced hospitalCase not found"
+            });
         }
 
-        if (!isNonEmptyString(hospital.empNo)) {
-            return res.status(422).json({ success: false, message: "Referenced hospitalCase has no empNo" });
+        if (!hospital.empNo) {
+            return res.status(422).json({
+                success: false,
+                message: "Referenced hospitalCase has no empNo"
+            });
         }
+
+        /* =====================================================
+           🔟 SAFE DATE OVERRIDE
+        ====================================================== */
+
+        let dateOfAdmission = hospital.dateOfAdmission;
+
+        if (payload.dateOfAdmission) {
+            const parsed = parseDate(payload.dateOfAdmission);
+            if (!parsed) {
+                return res.status(422).json({
+                    success: false,
+                    message: "dateOfAdmission must be a valid date"
+                });
+            }
+            dateOfAdmission = parsed;
+        }
+
+        /* =====================================================
+           1️⃣1️⃣ CREATE PAYLOAD
+        ====================================================== */
 
         const createPayload = {
             hospitalCase,
             empNo: hospital.empNo,
+
             hiManagers: payload.hiManagers.trim(),
             admissionMode: payload.admissionMode.trim(),
             admissionType: payload.admissionType.trim(),
@@ -302,39 +445,53 @@ async function createFromHospitalCase(req, res, next) {
             insuranceApprovalStatus: payload.insuranceApprovalStatus.trim(),
             treatmentUndergone: payload.treatmentUndergone.trim(),
             imVisitStatus: payload.imVisitStatus.trim(),
+
             noOfVisits,
             technicianVisits,
+
             treatmentLocation: payload.treatmentLocation.trim(),
             placeOfLocation: payload.placeOfLocation.trim(),
             postRecoveryLocation: payload.postRecoveryLocation.trim(),
+
             fitToTravel: parsedBooleanPayload.fitToTravel,
             postRehabRequired: parsedBooleanPayload.postRehabRequired,
             durationOfRehab,
             followUpRequired: parsedBooleanPayload.followUpRequired,
             rehabExtension: parsedBooleanPayload.rehabExtension,
             rehabExtensionDuration,
-            memberResumeToWork,
 
-            // optional fields (not required)
-            technicianFeedbackForm: optionalTrimmedString(payload.technicianFeedbackForm),
+            memberResumeToWork,
             dischargedHI,
             dodHI,
+
+            technicianFeedbackForm: optionalTrimmedString(payload.technicianFeedbackForm),
             source: optionalTrimmedString(payload.source),
             caseTypeChange: optionalTrimmedString(payload.caseTypeChange),
             dischargeComments: optionalTrimmedString(payload.dischargeComments),
             caseTypeChangeComments: optionalTrimmedString(payload.caseTypeChangeComments),
 
             hospitalName: payload.hospitalName || hospital.hospitalName,
-            dateOfAdmission: payload.dateOfAdmission || hospital.dateOfAdmission
+            dateOfAdmission
         };
 
-        const record = new IpAdmission(createPayload);
-        const saved = await record.save();
+        /* =====================================================
+           1️⃣2️⃣ SAVE
+        ====================================================== */
+
+        const saved = await IpAdmission.create(createPayload);
         const populated = await saved.populate(basePopulate);
-        const response = populated.toObject ? populated.toObject() : populated;
+
+        const response = populated.toObject
+            ? populated.toObject()
+            : populated;
+
         response.employeeName = hospital.employeeName || null;
 
-        return res.status(201).json({ success: true, data: response });
+        return res.status(201).json({
+            success: true,
+            data: response
+        });
+
     } catch (err) {
         next(err);
     }
