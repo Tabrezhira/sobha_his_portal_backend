@@ -46,7 +46,7 @@ const ipAdmissionSchema = new mongoose.Schema(
     rehabExtension: { type: Boolean },
     rehabExtensionDuration: { type: Number },
 
-    memberResumeToWork: { type: Date },
+    memberResumeToWork: { type: String },
 
     technicianFeedbackForm: { type: String },
 
