@@ -780,16 +780,16 @@ async function getEmpSummary(req, res, next) {
     }
 }
 
-// Get last 30 days history for an employee
+// Get last 90 days history for an employee
 async function getEmpHistory(req, res, next) {
 	try {
 		const empNo = req.query.empNo || req.params.empNo;
 		if (!empNo) return res.status(400).json({ success: false, message: 'empNo is required' });
 
 		const now = new Date();
-		const thirtyDaysAgo = new Date(now);
-		thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-		thirtyDaysAgo.setHours(0, 0, 0, 0);
+		const ninetyDaysAgo = new Date(now);
+		ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+		ninetyDaysAgo.setHours(0, 0, 0, 0);
 
 		const formatDate = (dateValue) => {
 			const d = new Date(dateValue);
@@ -799,11 +799,11 @@ async function getEmpHistory(req, res, next) {
 			return `${year}-${month}-${day}`;
 		};
 
-		const thirtyDaysAgoStr = formatDate(thirtyDaysAgo);
+		const ninetyDaysAgoStr = formatDate(ninetyDaysAgo);
 
 		const history = await ClinicVisit.find({
 			empNo,
-			date: { $gte: thirtyDaysAgoStr }
+			date: { $gte: ninetyDaysAgoStr }
 		})
 			.sort({ date: -1 })
 			.select('date providerName doctorName sentTo primaryDiagnosis secondaryDiagnosis referral referralType visitDateReferral');
