@@ -54,7 +54,7 @@ export const getPatients = async (req, res) => {
 	}
 };
 
-export const getAllPatients = async (req, res) => {
+export const getAllPatientsOLD = async (req, res) => {
 	try {
 		const { q, trLocation } = req.query;
 
@@ -76,6 +76,52 @@ export const getAllPatients = async (req, res) => {
 		const { status, message } = mapMongoError(err);
 		return res.status(status).json({ error: message });
 	}
+};
+
+export const getAllPatients = async (req, res) => {
+  try {
+    const { q, trLocation, page = 1, limit = 10 } = req.query;
+
+    const filter = {};
+
+    // TR Location filter
+    if (trLocation) {
+      filter.trLocation = trLocation;
+    }
+
+    // Global search
+    if (q) {
+      const search = q.trim();
+
+      filter.$or = [
+        { empId: { $regex: search.toUpperCase(), $options: "i" } },
+        { PatientName: { $regex: search, $options: "i" } },
+        { emiratesId: { $regex: search, $options: "i" } },
+        { insuranceId: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [patients, total] = await Promise.all([
+      Patient.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      Patient.countDocuments(filter),
+    ]);
+
+    return res.json({
+      items: patients,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / limit),
+    });
+  } catch (err) {
+    const { status, message } = mapMongoError(err);
+    return res.status(status).json({ error: message });
+  }
 };
 
 export const getPatientById = async (req, res) => {

@@ -827,6 +827,51 @@ async function getEmpHistory(req, res, next) {
 	}
 }
 
+// Search clinic visits by empNo and/or date
+async function searchVisits(req, res, next) {
+	try {
+		const { empNo, date } = req.query;
+		if (!empNo && !date) {
+			return res.status(400).json({
+				success: false,
+				message: 'Provide empNo, date, or both',
+			});
+		}
+
+		const q = {};
+		if (empNo) q.empNo = String(empNo).trim().toUpperCase();
+
+		if (date) {
+			const d = new Date(date);
+			if (isNaN(d.getTime())) {
+				return res.status(400).json({ success: false, message: 'Invalid date' });
+			}
+			const start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+			const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+			q.date = { $gte: start, $lt: end };
+		}
+
+		// Role-based location filtering
+		if (req.user) {
+			if (req.user.role === 'maleNurse') {
+				q.locationId = req.user.locationId;
+			} else if (req.user.role === 'manager' || req.user.role === 'superadmin') {
+				const managerLocs = req.user.managerLocation || [];
+				q.locationId = { $in: managerLocs };
+			}
+		}
+
+		const items = await ClinicVisit.find(q)
+			.sort({ date: -1, time: -1, _id: -1 })
+			.limit(200)
+			.populate('createdBy', 'name');
+
+		return res.json({ success: true, data: items, meta: { count: items.length } });
+	} catch (err) {
+		next(err);
+	}
+}
+
 // Export all clinic visits to Excel
 async function exportToExcel(req, res, next) {
 	try {
@@ -1481,4 +1526,4 @@ async function importExcel(req, res, next) {
 
 
 
-export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getManagerPrioritizedVisits, getEmpSummary, getEmpHistory, exportToExcel, filterByName, importExcel };
+export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getManagerPrioritizedVisits, getEmpSummary, getEmpHistory, exportToExcel, filterByName, importExcel, searchVisits };
