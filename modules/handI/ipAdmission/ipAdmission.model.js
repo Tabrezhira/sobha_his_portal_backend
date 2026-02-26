@@ -38,19 +38,19 @@ const ipAdmissionSchema = new mongoose.Schema(
     placeOfLocation: { type: String },
     postRecoveryLocation: { type: String },
 
-    fitToTravel: { type: Boolean },
-    postRehabRequired: { type: Boolean },
+    fitToTravel: { type: String },
+    postRehabRequired: { type: String },
     durationOfRehab: { type: Number },
 
-    followUpRequired: { type: Boolean },
-    rehabExtension: { type: Boolean },
+    followUpRequired: { type: String },
+    rehabExtension: { type: String },
     rehabExtensionDuration: { type: Number },
 
     memberResumeToWork: { type: String },
 
     technicianFeedbackForm: { type: String },
 
-    dischargedHI: { type: Boolean },
+    dischargedHI: { type: String },
     dodHI: { type: Date },
 
     source: { type: String },

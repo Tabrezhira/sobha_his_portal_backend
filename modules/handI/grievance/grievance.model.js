@@ -55,7 +55,6 @@ const GrievanceSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Open', 'In Progress', 'Closed', 'ON Hold'],
         default: 'Open'
     },
     rootCause: {
