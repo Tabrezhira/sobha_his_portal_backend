@@ -69,7 +69,7 @@ const ClinicVisitSchema = new mongoose.Schema(
     primaryDiagnosisReferral: { type: String },
     secondaryDiagnosisReferral: [{ type: String }],
     nurseRemarksReferral: { type: String },
-    insuranceApprovalRequested: { type: Boolean, default: false },
+    insuranceApprovalRequested: { type: String},
     followUpRequired: { type: Boolean, default: false },
     followUpVisits: [
       {

@@ -60,7 +60,7 @@ router.get('/', getPatients);
 router.get('/all', getAllPatients);
 //GET /api/patients/all - returns all patients
 //GET /api/patients/all?trLocation=alrahaba - filter by location
-//GET /api/patients/all?q=search - search by name, empId, or emiratesId
+//GET /api/patients/all?q=search - search by name, empId,emiratesId or insuranceId
 
 // Read - by empId (place before :id to avoid conflicts)
 router.get('/emp/:empId', getPatientByEmpId);

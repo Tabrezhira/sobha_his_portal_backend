@@ -248,6 +248,29 @@ async function getVisitById(req, res, next) {
 	}
 }
 
+// Get employee info from a clinic visit by id
+async function getEmployeeInfo(req, res, next) {
+	try {
+		const { id } = req.params;
+		const visit = await ClinicVisit.findById(id)
+			.select('empNo employeeName emiratesId insuranceId mobileNumber trLocation');
+		if (!visit) return res.status(404).json({ success: false, message: 'Not found' });
+		return res.json({
+			success: true,
+			data: {
+				emp: visit.empNo,
+				name: visit.employeeName,
+				emiratesId: visit.emiratesId,
+				insuranceId: visit.insuranceId,
+				mobileNumber: visit.mobileNumber,
+				trLocation: visit.trLocation
+			}
+		});
+	} catch (err) {
+		next(err);
+	}
+}
+
 // Filter clinic visits by manager's locations
 async function filterByName(req, res, next) {
 	try {
@@ -977,8 +1000,7 @@ async function exportToExcel(req, res, next) {
 				rowData[`PRIMARY DIAGNOSIS-REF 1`] = visit.primaryDiagnosisReferral || '';
 				rowData[`SECONDARY DIAGNOSIS-REF 1`] = visit.secondaryDiagnosisReferral ? visit.secondaryDiagnosisReferral.join(', ') : '';
 				rowData[`NURSE REMARKS 1`] = visit.nurseRemarksReferral || '';
-				rowData[`INSURANCE APPROVAL REQUESTS 1`] = visit.insuranceApprovalRequested ? 'Yes' : 'No';
-				rowData[`FOLLOW UP REQUIRED 1`] = visit.followUpRequired ? 'Yes' : 'No';
+			rowData[`INSURANCE APPROVAL REQUESTS 1`] = visit.insuranceApprovalRequested || '';
 
 				// Add follow-up visits array items
 				if (visit.followUpVisits && visit.followUpVisits.length > 0) {
@@ -1241,8 +1263,7 @@ async function importExcelold(req, res, next) {
 				primaryDiagnosisReferral: row['PRIMARY DIAGNOSIS-REF'] || row['PRIMARY DIAGNOSIS-REF 1'] || '',
 				secondaryDiagnosisReferral: parseArray(row['SECONDARY DIAGNOSIS-REF'] || row['SECONDARY DIAGNOSIS-REF 1']),
 				nurseRemarksReferral: row['NURSE REMARKS'] || row['NURSE REMARKS 1'] || '',
-				insuranceApprovalRequested: parseBoolean(row['INSURANCE APPROVAL REQUESTS'] || row['INSURANCE APPROVAL REQUESTS 1']),
-
+			insuranceApprovalRequested: row['INSURANCE APPROVAL REQUESTS'] || row['INSURANCE APPROVAL REQUESTS 1'] || '',
 				followUpRequired: parseBoolean(row['FOLLOW UP REQUIRED'] || row['FOLLOW UP REQUIRED 1']),
 				visitStatus: row['VISIT STATUS'] || '',
 				finalRemarks: row['REMARKS-REF'] || row['FINAL REMARKS'] || '',
@@ -1458,7 +1479,7 @@ async function importExcel(req, res, next) {
         primaryDiagnosisReferral: row["REFERRAL PRIMARY DIAGNOSIS"] || "",
         secondaryDiagnosisReferral: parseArray(row["REFERRAL SECONDARY DIAGNOSIS"]),
         nurseRemarksReferral: row["REFERRAL NURSE REMARKS"] || "",
-        insuranceApprovalRequested: parseBoolean(row["INSURANCE APPROVAL REQUESTED"]),
+        insuranceApprovalRequested: row["INSURANCE APPROVAL REQUESTED"] || "",
 
         followUpRequired: parseBoolean(row["FOLLOW UP REQUIRED"]),
         visitStatus: row["VISIT STATUS"] || "",
@@ -1526,4 +1547,4 @@ async function importExcel(req, res, next) {
 
 
 
-export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getManagerPrioritizedVisits, getEmpSummary, getEmpHistory, exportToExcel, filterByName, importExcel, searchVisits };
+export default { createVisit, getVisits, getVisitById, getEmployeeInfo, updateVisit, deleteVisit, getVisitsByUserLocation, getManagerPrioritizedVisits, getEmpSummary, getEmpHistory, exportToExcel, filterByName, importExcel, searchVisits };
