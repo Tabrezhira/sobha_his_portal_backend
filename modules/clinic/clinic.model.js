@@ -31,7 +31,7 @@ const ClinicVisitSchema = new mongoose.Schema(
 
     others: { type: String },
 
-    tokenNo: { type: String, index: true },
+    tokenNo: { type: String, 	unique: true, index: true },
     sentTo: { type: String },
     providerName: { type: String },
 

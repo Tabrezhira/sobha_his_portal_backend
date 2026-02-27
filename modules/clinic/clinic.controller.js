@@ -4,9 +4,10 @@ import XLSX from 'xlsx';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import DailyTokenCounter from "./DailyTokenCounter.js";
 
 // Create a new clinic visit
-async function createVisit(req, res, next) {
+async function createVisitOLD(req, res, next) {
 	try {
 		if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: 'Not authenticated' });
 
@@ -108,6 +109,143 @@ async function createVisit(req, res, next) {
 		const saved = await visit.save();
 		const populated = await saved.populate('createdBy', 'name');
 		return res.status(201).json({ success: true, data: populated });
+	} catch (err) {
+		next(err);
+	}
+}
+
+
+
+async function createVisit(req, res, next) {
+	try {
+		if (!req.user || !req.user._id) {
+			return res.status(401).json({ success: false, message: "Not authenticated" });
+		}
+
+		const payload = req.body || {};
+
+		const requiredFields = [
+			"date",
+			"time",
+			"empNo",
+			"employeeName",
+			"emiratesId",
+			"trLocation",
+			"mobileNumber",
+			"natureOfCase",
+			"caseCategory",
+		];
+
+		const missing = requiredFields.filter((key) => !payload[key]);
+		if (missing.length) {
+			return res.status(400).json({
+				success: false,
+				message: `Missing required fields: ${missing.join(", ")}`,
+			});
+		}
+
+		// Security fields
+		delete payload.createdBy;
+		payload.createdBy = req.user._id;
+
+		if (req.user.locationId) {
+			payload.locationId = req.user.locationId;
+		}
+
+		// ===============================
+		// TOKEN GENERATION (ATOMIC SAFE)
+		// ===============================
+
+		if (!payload.tokenNo) {
+
+			const locationCodeMap = {
+				"AL QOUZ": "QOZ",
+				"DIC 2": "DIC2",
+				"DIC 3": "DIC3",
+				"DIC 5": "DIC5",
+				"DIP 1": "DIP1",
+				"DIP 2": "DIP2",
+				"JEBAL ALI 1": "JAB1",
+				"JEBAL ALI 2": "JAB2",
+				"JEBAL ALI 3": "JAB3",
+				"JEBAL ALI 4": "JAB4",
+				"KHAWANEEJ": "KWJ",
+				"RUWAYYAH": "RUW",
+				"SAJJA": "SAJJ",
+				"SAIF": "SAIF",
+				"SONAPUR 1": "SONA1",
+				"SONAPUR 2": "SONA2",
+				"SONAPUR 3": "SONA3",
+				"SONAPUR 4": "SONA4",
+				"SONAPUR 5": "SONA5",
+				"SONAPUR 6": "SONA6",
+				"SONAPUR 7": "SONA7",
+				"RAHABA": "RAH",
+			};
+
+			const rawLoc = String(payload.locationId || "").trim();
+			const locKey = rawLoc.toUpperCase().replace(/\s+/g, " ");
+			let loc = locationCodeMap[locKey];
+
+			if (!loc) {
+				loc = rawLoc.replace(/\s+/g, "").substring(0, 4).toUpperCase() || "UNKN";
+			}
+
+			const now = new Date();
+			const dd = String(now.getDate()).padStart(2, "0");
+			const mm = String(now.getMonth() + 1).padStart(2, "0");
+			const yyyy = now.getFullYear();
+
+			const dateKey = `${yyyy}-${mm}-${dd}`;
+
+			// 🔥 Atomic increment
+			const counter = await DailyTokenCounter.findOneAndUpdate(
+				{ locationId: rawLoc, dateKey },
+				{ $inc: { seq: 1 } },
+				{ new: true, upsert: true }
+			);
+
+			let seqStr = String(counter.seq).padStart(4, "0");
+			if (counter.seq > 9999) {
+				seqStr = seqStr.slice(-4);
+			}
+
+			// External Provider logic
+			const sendToValue = String(payload.sendTo || payload.sentTo || "")
+				.toUpperCase()
+				.trim();
+
+			let locPrefix = loc;
+
+			if (sendToValue === "EXTERNAL PROVIDER") {
+				locPrefix = `${loc}XT`;
+			}
+
+			// 🔹 Sick Leave Logic
+			const isEligible =
+				payload.eligibilityForSickLeave === true ||
+				String(payload.eligibilityForSickLeave).toLowerCase() === "true";
+
+			if (isEligible) {
+				locPrefix = `EL-${locPrefix}`;
+			}
+
+			payload.tokenNo = `${locPrefix}-${dd}${mm}-${seqStr}`;
+		}
+
+		// Referral logic
+		if ((payload.referral || payload.referredToHospital) && !payload.referralCode) {
+			payload.referralCode = payload.tokenNo;
+		}
+
+		const visit = new ClinicVisit(payload);
+		const saved = await visit.save();
+		const populated = await saved.populate("createdBy", "name");
+
+		return res.status(201).json({
+			success: true,
+			data: populated,
+		});
 	} catch (err) {
 		next(err);
 	}
@@ -248,27 +386,27 @@ async function getVisitById(req, res, next) {
 	}
 }
 
-// Get employee info from a clinic visit by id
+// Get employee info from a clinic visit by tokenNo
 async function getEmployeeInfo(req, res, next) {
-	try {
-		const { id } = req.params;
-		const visit = await ClinicVisit.findById(id)
-			.select('empNo employeeName emiratesId insuranceId mobileNumber trLocation');
-		if (!visit) return res.status(404).json({ success: false, message: 'Not found' });
-		return res.json({
-			success: true,
-			data: {
-				emp: visit.empNo,
-				name: visit.employeeName,
-				emiratesId: visit.emiratesId,
-				insuranceId: visit.insuranceId,
-				mobileNumber: visit.mobileNumber,
-				trLocation: visit.trLocation
-			}
-		});
-	} catch (err) {
-		next(err);
-	}
+    try {
+        const { id } = req.params;
+        const visit = await ClinicVisit.findOne({ tokenNo: id })
+            .select('empNo employeeName emiratesId insuranceId mobileNumber trLocation');
+        if (!visit) return res.status(404).json({ success: false, message: 'Not found' });
+        return res.json({
+            success: true,
+            data: {
+                emp: visit.empNo,
+                name: visit.employeeName,
+                emiratesId: visit.emiratesId,
+                insuranceId: visit.insuranceId,
+                mobileNumber: visit.mobileNumber,
+                trLocation: visit.trLocation
+            }
+        });
+    } catch (err) {
+        next(err);
+    }
 }
 
 // Filter clinic visits by manager's locations
