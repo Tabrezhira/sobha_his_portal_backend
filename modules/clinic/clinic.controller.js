@@ -1012,16 +1012,6 @@ async function searchVisits(req, res, next) {
 			q.date = { $gte: start, $lt: end };
 		}
 
-		// Role-based location filtering
-		if (req.user) {
-			if (req.user.role === 'maleNurse') {
-				q.locationId = req.user.locationId;
-			} else if (req.user.role === 'manager' || req.user.role === 'superadmin') {
-				const managerLocs = req.user.managerLocation || [];
-				q.locationId = { $in: managerLocs };
-			}
-		}
-
 		const items = await ClinicVisit.find(q)
 			.sort({ date: -1, time: -1, _id: -1 })
 			.limit(200)
