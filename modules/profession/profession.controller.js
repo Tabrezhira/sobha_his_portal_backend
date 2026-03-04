@@ -199,37 +199,36 @@ export const uploadExcel = async (req, res) => {
   let insertedCount = 0;
 
   try {
-    const workbookReader = new ExcelJS.stream.xlsx.WorkbookReader(
-      fs.createReadStream(req.file.path)
-    );
+    // ✅ Use normal workbook instead of streaming WorkbookReader
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(req.file.path);
 
-    for await (const worksheet of workbookReader) {
+    for (const worksheet of workbook.worksheets) {
       let headers = {};
 
-      for await (const row of worksheet) {
-        if (row.number === 1) {
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) {
           row.eachCell((cell, colNumber) => {
-            headers[colNumber] = String(cell.value).trim().toLowerCase();
+            headers[colNumber] = String(cell.value || "").trim().toLowerCase();
           });
-          continue;
+          return;
         }
 
         let name = "", category = "";
 
         row.eachCell((cell, colNumber) => {
-          if (headers[colNumber] === "name")     name     = String(cell.value || "").trim();
+          if (headers[colNumber] === "name") name = String(cell.value || "").trim();
           if (headers[colNumber] === "category") category = String(cell.value || "").trim();
         });
 
-        if (!name) continue;
-
+        if (!name) return;
         batch.push({ name, category });
+      });
 
-        if (batch.length === BATCH_SIZE) {
-          await Profession.insertMany(batch, { ordered: false });
-          insertedCount += batch.length;
-          batch = [];
-        }
+      if (batch.length >= BATCH_SIZE) {
+        await Profession.insertMany(batch, { ordered: false });
+        insertedCount += batch.length;
+        batch = [];
       }
     }
 
