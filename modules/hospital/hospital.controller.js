@@ -628,6 +628,7 @@ async function getHospitalsByHandleBy(req, res, next) {
       },
       {
         $project: {
+          id: '$_id',
           empNo: 1,
           employeeName: 1,
           mobileNumber: 1,
