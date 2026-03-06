@@ -21,10 +21,12 @@ router.post("/", auth, controller.createHospital);
 router.post("/import/excel", auth, upload.single("file"), controller.importExcel);
 router.get("/", auth, controller.getHospitals);
 router.get("/manager/discharge-status", auth, controller.getHospitalsByManagerLocation);
+router.get("/upcoming-followups", auth, controller.getHospitalsByHandleBy); // Add this line
 router.get("/employee/search", controller.getHospitalByEmployeeAndDate);
 router.get("/my-location", auth, controller.getHospitalsByUserLocation);
 router.get("/:id", controller.getHospitalById);
 router.put("/:id", auth, controller.updateHospital);
 router.delete("/:id", auth, controller.deleteHospital);
+
 
 export default router;

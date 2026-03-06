@@ -53,6 +53,9 @@ const HospitalSchema = new mongoose.Schema({
   },
 
   finalRemarks: { type: String },
+  handleBy: {
+    type: String,
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

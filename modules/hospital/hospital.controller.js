@@ -38,6 +38,8 @@ async function getHospitals(req, res, next) {
     if (req.user) {
       if (req.user.role === 'maleNurse') {
         q.locationId = req.user.locationId;
+      } else if (req.user.role === 'ISD' || req.user.role === 'RCT') {
+        q.handleBy = req.user.role;
       } else if (req.user.role === 'manager' || req.user.role === 'superadmin') {
         const managerLocs = req.user.managerLocation || [];
         if (locationId) {
@@ -594,4 +596,89 @@ async function importExcel(req, res, next) {
     next(err);
   }
 }
-export default { createHospital, getHospitals, getHospitalById, updateHospital, deleteHospital, getHospitalsByUserLocation, getHospitalsByManagerLocation, getHospitalByEmployeeAndDate, importExcel };
+
+// Get hospitals by user role (handleBy) with upcoming follow-up dates
+async function getHospitalsByHandleBy(req, res, next) {
+  try {
+    if (!req.user || !req.user.role) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'User role not found' 
+      });
+    }
+
+    const userRole = req.user.role;
+
+    // Calculate date ranges
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dayAfterTomorrow = new Date(today);
+    dayAfterTomorrow.setDate(today.getDate() + 3);
+
+    const hospitals = await Hospital.aggregate([
+      {
+        $match: {
+          handleBy: userRole,
+          'followUp.date': {
+            $gte: today,
+            $lt: dayAfterTomorrow
+          }
+        }
+      },
+      {
+        $project: {
+          empNo: 1,
+          employeeName: 1,
+          mobileNumber: 1,
+          hospitalName: 1,
+          natureOfCase: 1,
+          caseCategory: 1,
+          followUp: {
+            $filter: {
+              input: '$followUp',
+              as: 'visit',
+              cond: {
+                $and: [
+                  { $gte: ['$$visit.date', today] },
+                  { $lt: ['$$visit.date', dayAfterTomorrow] }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
+          nextFollowUpDate: {
+            $min: '$followUp.date'
+          }
+        }
+      },
+      {
+        $sort: { nextFollowUpDate: 1 }
+      }
+    ]);
+
+    return res.json({
+      success: true,
+      count: hospitals.length,
+      data: hospitals
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export default {
+  createHospital,
+  getHospitals,
+  getHospitalById,
+  updateHospital,
+  deleteHospital,
+  getHospitalsByUserLocation,
+  getHospitalsByManagerLocation,
+  getHospitalByEmployeeAndDate,
+  importExcel,
+  getHospitalsByHandleBy, // Add this
+};
