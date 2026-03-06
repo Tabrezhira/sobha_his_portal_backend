@@ -23,6 +23,7 @@ router.get("/history/:empNo", controller.getEmpHistory);
 router.get("/search", controller.searchVisits);
 router.get("/filter-by-name", controller.filterByName);
 router.get("/my-location", auth, controller.getVisitsByUserLocation);
+router.get("/dashboard-visits", auth, controller.getDashboardVisits);
 router.get("/manager-prioritized", auth, controller.getManagerPrioritizedVisits);
 router.get("/:id/employee-info", controller.getEmployeeInfo);
 router.get("/:id", controller.getVisitById);

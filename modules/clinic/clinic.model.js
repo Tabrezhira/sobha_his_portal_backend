@@ -9,7 +9,7 @@ const ClinicVisitSchema = new mongoose.Schema(
 
     empNo: { type: String, index: true, uppercase: true },
     employeeName: { type: String, trim: true, },
-    dateOfJoining: { type: String},
+    dateOfJoining: { type: String },
     eligibilityForSickLeave: { type: Boolean },
     emiratesId: {
       type: String,
@@ -31,7 +31,7 @@ const ClinicVisitSchema = new mongoose.Schema(
 
     others: { type: String },
 
-    tokenNo: { type: String, 	unique: true, index: true },
+    tokenNo: { type: String, unique: true, index: true },
     sentTo: { type: String },
     providerName: { type: String },
 
@@ -69,7 +69,7 @@ const ClinicVisitSchema = new mongoose.Schema(
     primaryDiagnosisReferral: { type: String },
     secondaryDiagnosisReferral: [{ type: String }],
     nurseRemarksReferral: { type: String },
-    insuranceApprovalRequested: { type: String},
+    insuranceApprovalRequested: { type: String },
     followUpRequired: { type: Boolean, default: false },
     followUpVisits: [
       {

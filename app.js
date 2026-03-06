@@ -1,3 +1,4 @@
+import './instrument.js';
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -5,6 +6,8 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { connectDB } from './config/db.js';
 import './config/env.js';
+import * as Sentry from "@sentry/node";
+
 const app = express();
 
 const corsOptions = {
@@ -58,6 +61,31 @@ app.use('/api/happiness-survey', happinessSurveyRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/professions', professionRoutes);
 app.use('/api/emp-doj', empDojRoutes);
+
+app.get("/debug-sentry", function mainHandler(req, res) {
+  // Send a log before throwing the error
+  Sentry.logger.info('User triggered test error', {
+    action: 'test_error_endpoint',
+  });
+  // Send a test metric before throwing the error
+  Sentry.metrics.count('test_counter', 1);
+  throw new Error("My first Sentry error!");
+});
+
+app.get("/test-log", function mainHandler(req, res) {
+  Sentry.logger.info('User triggered test log', { action: 'test_log' });
+  res.status(200).send("Test log sent!");
+});
+
+app.get("/test-metrics", function mainHandler(req, res) {
+  Sentry.metrics.count('button_click', 1);
+  Sentry.metrics.gauge('page_load_time', 150);
+  Sentry.metrics.distribution('response_time', 200);
+  res.status(200).send("Test metrics emitted!");
+});
+
+// The error handler must be registered before any other error middleware and after all controllers
+Sentry.setupExpressErrorHandler(app);
 
 // Error handler
 app.use((err, req, res, next) => {

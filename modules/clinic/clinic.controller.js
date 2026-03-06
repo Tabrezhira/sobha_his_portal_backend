@@ -388,25 +388,25 @@ async function getVisitById(req, res, next) {
 
 // Get employee info from a clinic visit by tokenNo
 async function getEmployeeInfo(req, res, next) {
-    try {
-        const { id } = req.params;
-        const visit = await ClinicVisit.findOne({ tokenNo: id })
-            .select('empNo employeeName emiratesId insuranceId mobileNumber trLocation');
-        if (!visit) return res.status(404).json({ success: false, message: 'Not found' });
-        return res.json({
-            success: true,
-            data: {
-                emp: visit.empNo,
-                name: visit.employeeName,
-                emiratesId: visit.emiratesId,
-                insuranceId: visit.insuranceId,
-                mobileNumber: visit.mobileNumber,
-                trLocation: visit.trLocation
-            }
-        });
-    } catch (err) {
-        next(err);
-    }
+	try {
+		const { id } = req.params;
+		const visit = await ClinicVisit.findOne({ tokenNo: id })
+			.select('empNo employeeName emiratesId insuranceId mobileNumber trLocation');
+		if (!visit) return res.status(404).json({ success: false, message: 'Not found' });
+		return res.json({
+			success: true,
+			data: {
+				emp: visit.empNo,
+				name: visit.employeeName,
+				emiratesId: visit.emiratesId,
+				insuranceId: visit.insuranceId,
+				mobileNumber: visit.mobileNumber,
+				trLocation: visit.trLocation
+			}
+		});
+	} catch (err) {
+		next(err);
+	}
 }
 
 // Filter clinic visits by manager's locations
@@ -882,63 +882,63 @@ async function getVisitsByUserLocation(req, res, next) {
 
 // Get summary for an employee (by empNo)
 async function getEmpSummary(req, res, next) {
-    try {
-        const rawEmpNo = req.query.empNo || req.params.empNo;
-        if (!rawEmpNo) {
-            return res.status(400).json({ success: false, message: 'empNo is required' });
-        }
+	try {
+		const rawEmpNo = req.query.empNo || req.params.empNo;
+		if (!rawEmpNo) {
+			return res.status(400).json({ success: false, message: 'empNo is required' });
+		}
 
-        // empNo is stored uppercase in schema, normalize for accurate matching
-        const empNo = String(rawEmpNo).trim().toUpperCase();
+		// empNo is stored uppercase in schema, normalize for accurate matching
+		const empNo = String(rawEmpNo).trim().toUpperCase();
 
-        const now = new Date();
-        const last90Start = new Date(now);
-        last90Start.setDate(last90Start.getDate() - 90);
-        last90Start.setHours(0, 0, 0, 0);
+		const now = new Date();
+		const last90Start = new Date(now);
+		last90Start.setDate(last90Start.getDate() - 90);
+		last90Start.setHours(0, 0, 0, 0);
 
-        const [
-            allTimeTotalVisits,
-            last90Visits,
-            sickLeaveApprovedCount,
-            totalReferrals,
-            openReferrals,
-        ] = await Promise.all([
-            ClinicVisit.countDocuments({ empNo }),
-            ClinicVisit.find({
-                empNo,
-                date: { $gte: last90Start, $lte: now }, // strict 90-day window up to now
-            })
-                .sort({ date: -1, time: -1, _id: -1 })
-                .select('date providerName doctorName sentTo'),
-            ClinicVisit.countDocuments({ empNo, sickLeaveStatus: 'Approved' }),
-            ClinicVisit.countDocuments({ empNo, referral: true }),
-            ClinicVisit.countDocuments({ empNo, referral: true, visitStatus: 'OPEN' }),
-        ]);
+		const [
+			allTimeTotalVisits,
+			last90Visits,
+			sickLeaveApprovedCount,
+			totalReferrals,
+			openReferrals,
+		] = await Promise.all([
+			ClinicVisit.countDocuments({ empNo }),
+			ClinicVisit.find({
+				empNo,
+				date: { $gte: last90Start, $lte: now }, // strict 90-day window up to now
+			})
+				.sort({ date: -1, time: -1, _id: -1 })
+				.select('date providerName doctorName sentTo'),
+			ClinicVisit.countDocuments({ empNo, sickLeaveStatus: 'Approved' }),
+			ClinicVisit.countDocuments({ empNo, referral: true }),
+			ClinicVisit.countDocuments({ empNo, referral: true, visitStatus: 'OPEN' }),
+		]);
 
-        const visitsLast90Days = last90Visits.map((v) => ({
-            date: v.date,
-            provider: v.providerName || v.doctorName || v.sentTo || null,
-        }));
+		const visitsLast90Days = last90Visits.map((v) => ({
+			date: v.date,
+			provider: v.providerName || v.doctorName || v.sentTo || null,
+		}));
 
-        return res.json({
-            success: true,
-            data: {
-                empNo,
-                last90Days: {
-                    from: last90Start,
-                    to: now,
-                    count: last90Visits.length,
-                    visits: visitsLast90Days,
-                },
-                allTimeTotalVisits,
-                sickLeaveApprovedCount,
-                totalReferrals,
-                openReferrals,
-            },
-        });
-    } catch (err) {
-        next(err);
-    }
+		return res.json({
+			success: true,
+			data: {
+				empNo,
+				last90Days: {
+					from: last90Start,
+					to: now,
+					count: last90Visits.length,
+					visits: visitsLast90Days,
+				},
+				allTimeTotalVisits,
+				sickLeaveApprovedCount,
+				totalReferrals,
+				openReferrals,
+			},
+		});
+	} catch (err) {
+		next(err);
+	}
 }
 
 // Get last 90 days history for an employee
@@ -1128,7 +1128,7 @@ async function exportToExcel(req, res, next) {
 				rowData[`PRIMARY DIAGNOSIS-REF 1`] = visit.primaryDiagnosisReferral || '';
 				rowData[`SECONDARY DIAGNOSIS-REF 1`] = visit.secondaryDiagnosisReferral ? visit.secondaryDiagnosisReferral.join(', ') : '';
 				rowData[`NURSE REMARKS 1`] = visit.nurseRemarksReferral || '';
-			rowData[`INSURANCE APPROVAL REQUESTS 1`] = visit.insuranceApprovalRequested || '';
+				rowData[`INSURANCE APPROVAL REQUESTS 1`] = visit.insuranceApprovalRequested || '';
 
 				// Add follow-up visits array items
 				if (visit.followUpVisits && visit.followUpVisits.length > 0) {
@@ -1391,7 +1391,7 @@ async function importExcelold(req, res, next) {
 				primaryDiagnosisReferral: row['PRIMARY DIAGNOSIS-REF'] || row['PRIMARY DIAGNOSIS-REF 1'] || '',
 				secondaryDiagnosisReferral: parseArray(row['SECONDARY DIAGNOSIS-REF'] || row['SECONDARY DIAGNOSIS-REF 1']),
 				nurseRemarksReferral: row['NURSE REMARKS'] || row['NURSE REMARKS 1'] || '',
-			insuranceApprovalRequested: row['INSURANCE APPROVAL REQUESTS'] || row['INSURANCE APPROVAL REQUESTS 1'] || '',
+				insuranceApprovalRequested: row['INSURANCE APPROVAL REQUESTS'] || row['INSURANCE APPROVAL REQUESTS 1'] || '',
 				followUpRequired: parseBoolean(row['FOLLOW UP REQUIRED'] || row['FOLLOW UP REQUIRED 1']),
 				visitStatus: row['VISIT STATUS'] || '',
 				finalRemarks: row['REMARKS-REF'] || row['FINAL REMARKS'] || '',
@@ -1505,174 +1505,263 @@ async function importExcelold(req, res, next) {
 
 
 async function importExcel(req, res, next) {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: "No file uploaded" });
-    }
+	try {
+		if (!req.file) {
+			return res.status(400).json({ success: false, message: "No file uploaded" });
+		}
 
-    const workbook = XLSX.readFile(req.file.path, { cellDates: false });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
+		const workbook = XLSX.readFile(req.file.path, { cellDates: false });
+		const sheetName = workbook.SheetNames[0];
+		const worksheet = workbook.Sheets[sheetName];
 
-    const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-      defval: "",
-      raw: false,
-      blankrows: false,
-    });
+		const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+			defval: "",
+			raw: false,
+			blankrows: false,
+		});
 
-    if (!jsonData.length) {
-      return res.status(400).json({ success: false, message: "Excel file is empty" });
-    }
+		if (!jsonData.length) {
+			return res.status(400).json({ success: false, message: "Excel file is empty" });
+		}
 
-    const parseBoolean = (val) => {
-      if (!val) return false;
-      const s = String(val).trim().toUpperCase();
-      return ["YES", "TRUE", "1"].includes(s);
-    };
+		const parseBoolean = (val) => {
+			if (!val) return false;
+			const s = String(val).trim().toUpperCase();
+			return ["YES", "TRUE", "1"].includes(s);
+		};
 
-    const parseArray = (val, sep = "|") => {
-      if (!val) return [];
-      return String(val).split(sep).map((v) => v.trim()).filter(Boolean);
-    };
+		const parseArray = (val, sep = "|") => {
+			if (!val) return [];
+			return String(val).split(sep).map((v) => v.trim()).filter(Boolean);
+		};
 
-    const parseDate = (val) => {
-      if (!val) return null;
-      const s = String(val).trim();
-      const ddMon = s.match(/^(\d{1,2})[-\/]([A-Za-z]{3})[-\/](\d{4})$/);
-      if (ddMon) {
-        const months = {
-          jan: "01", feb: "02", mar: "03", apr: "04",
-          may: "05", jun: "06", jul: "07", aug: "08",
-          sep: "09", oct: "10", nov: "11", dec: "12",
-        };
-        const dd = ddMon[1].padStart(2, "0");
-        const mm = months[ddMon[2].toLowerCase()];
-        return new Date(`${ddMon[3]}-${mm}-${dd}`);
-      }
-      const d = new Date(s);
-      return isNaN(d.getTime()) ? null : d;
-    };
+		const parseDate = (val) => {
+			if (!val) return null;
+			const s = String(val).trim();
+			const ddMon = s.match(/^(\d{1,2})[-\/]([A-Za-z]{3})[-\/](\d{4})$/);
+			if (ddMon) {
+				const months = {
+					jan: "01", feb: "02", mar: "03", apr: "04",
+					may: "05", jun: "06", jul: "07", aug: "08",
+					sep: "09", oct: "10", nov: "11", dec: "12",
+				};
+				const dd = ddMon[1].padStart(2, "0");
+				const mm = months[ddMon[2].toLowerCase()];
+				return new Date(`${ddMon[3]}-${mm}-${dd}`);
+			}
+			const d = new Date(s);
+			return isNaN(d.getTime()) ? null : d;
+		};
 
-    const newVisits = [];
+		const newVisits = [];
 
-    for (const rawRow of jsonData) {
-      const row = {};
-      for (const key in rawRow) {
-        let cleanKey = key.trim().replace(/\s+/g, " ").toUpperCase();
-        row[cleanKey] = rawRow[key];
-      }
+		for (const rawRow of jsonData) {
+			const row = {};
+			for (const key in rawRow) {
+				let cleanKey = key.trim().replace(/\s+/g, " ").toUpperCase();
+				row[cleanKey] = rawRow[key];
+			}
 
-      const visitData = {
-        locationId: row["TR LOCATION"] || "",
-        date: parseDate(row["DATE"]),
-        time: row["TIME"] || "",
-        empNo: row["EMP NO"] || "",
-        employeeName: row["EMPLOYEE NAME"] || "",
-        emiratesId: row["EMIRATES ID"] || "",
-        insuranceId: row["INSURANCE ID"] || "",
-        trLocation: row["TR LOCATION"] || "",
-        mobileNumber: String(row["MOBILE NUMBER"] || ""),
-        natureOfCase: row["NATURE OF CASE"] || "",
-        caseCategory: row["CASE CATEGORY"] || "",
+			const visitData = {
+				locationId: row["TR LOCATION"] || "",
+				date: parseDate(row["DATE"]),
+				time: row["TIME"] || "",
+				empNo: row["EMP NO"] || "",
+				employeeName: row["EMPLOYEE NAME"] || "",
+				emiratesId: row["EMIRATES ID"] || "",
+				insuranceId: row["INSURANCE ID"] || "",
+				trLocation: row["TR LOCATION"] || "",
+				mobileNumber: String(row["MOBILE NUMBER"] || ""),
+				natureOfCase: row["NATURE OF CASE"] || "",
+				caseCategory: row["CASE CATEGORY"] || "",
 
-        nurseAssessment: parseArray(row["NURSE ASSESSMENT"]),
-        symptomDuration: row["SYMPTOM DURATION"] || "",
-        temperature: row["TEMP"] ? Number(row["TEMP"]) : null,
-        bloodPressure: row["BP"] || "",
-        heartRate: row["HEART RATE"] ? Number(row["HEART RATE"]) : null,
-        others: row["OTHERS"] || "",
+				nurseAssessment: parseArray(row["NURSE ASSESSMENT"]),
+				symptomDuration: row["SYMPTOM DURATION"] || "",
+				temperature: row["TEMP"] ? Number(row["TEMP"]) : null,
+				bloodPressure: row["BP"] || "",
+				heartRate: row["HEART RATE"] ? Number(row["HEART RATE"]) : null,
+				others: row["OTHERS"] || "",
 
-        tokenNo: row["TOKEN NO"] || "",
-        sentTo: row["SENT TO"] || "",
-        providerName: row["PROVIDER NAME"] || "",
-        doctorName: row["DOCTOR NAME"] || "",
+				tokenNo: row["TOKEN NO"] || "",
+				sentTo: row["SENT TO"] || "",
+				providerName: row["PROVIDER NAME"] || "",
+				doctorName: row["DOCTOR NAME"] || "",
 
-        primaryDiagnosis: row["PRIMARY DIAGNOSIS"] || "",
-        secondaryDiagnosis: parseArray(row["SECONDARY DIAGNOSIS"]),
+				primaryDiagnosis: row["PRIMARY DIAGNOSIS"] || "",
+				secondaryDiagnosis: parseArray(row["SECONDARY DIAGNOSIS"]),
 
-        sickLeaveStatus: row["SICK LEAVE STATUS"] || "",
-        sickLeaveStartDate: parseDate(row["SICK LEAVE START DATE"]),
-        sickLeaveEndDate: parseDate(row["SICK LEAVE END DATE"]),
-        totalSickLeaveDays: row["TOTAL SICK LEAVE DAYS"] ? Number(row["TOTAL SICK LEAVE DAYS"]) : null,
-        remarks: row["SICK LEAVE REMARKS"] || "",
+				sickLeaveStatus: row["SICK LEAVE STATUS"] || "",
+				sickLeaveStartDate: parseDate(row["SICK LEAVE START DATE"]),
+				sickLeaveEndDate: parseDate(row["SICK LEAVE END DATE"]),
+				totalSickLeaveDays: row["TOTAL SICK LEAVE DAYS"] ? Number(row["TOTAL SICK LEAVE DAYS"]) : null,
+				remarks: row["SICK LEAVE REMARKS"] || "",
 
-        referral: parseBoolean(row["REFERRAL"]),
-        referralCode: row["REFERRAL CODE"] || "",
-        referralType: row["REFERRAL TYPE"] || "",
-        referredToHospital: row["REFERRED TO HOSPITAL"] || "",
-        visitDateReferral: parseDate(row["REFERRAL VISIT DATE"]),
-        specialistType: row["SPECIALIST TYPE"] || "",
-        doctorNameReferral: row["REFERRAL DOCTOR NAME"] || "",
-        investigationReports: row["INVESTIGATION REPORTS"] || "",
-        primaryDiagnosisReferral: row["REFERRAL PRIMARY DIAGNOSIS"] || "",
-        secondaryDiagnosisReferral: parseArray(row["REFERRAL SECONDARY DIAGNOSIS"]),
-        nurseRemarksReferral: row["REFERRAL NURSE REMARKS"] || "",
-        insuranceApprovalRequested: row["INSURANCE APPROVAL REQUESTED"] || "",
+				referral: parseBoolean(row["REFERRAL"]),
+				referralCode: row["REFERRAL CODE"] || "",
+				referralType: row["REFERRAL TYPE"] || "",
+				referredToHospital: row["REFERRED TO HOSPITAL"] || "",
+				visitDateReferral: parseDate(row["REFERRAL VISIT DATE"]),
+				specialistType: row["SPECIALIST TYPE"] || "",
+				doctorNameReferral: row["REFERRAL DOCTOR NAME"] || "",
+				investigationReports: row["INVESTIGATION REPORTS"] || "",
+				primaryDiagnosisReferral: row["REFERRAL PRIMARY DIAGNOSIS"] || "",
+				secondaryDiagnosisReferral: parseArray(row["REFERRAL SECONDARY DIAGNOSIS"]),
+				nurseRemarksReferral: row["REFERRAL NURSE REMARKS"] || "",
+				insuranceApprovalRequested: row["INSURANCE APPROVAL REQUESTED"] || "",
 
-        followUpRequired: parseBoolean(row["FOLLOW UP REQUIRED"]),
-        visitStatus: row["VISIT STATUS"] || "",
-        finalRemarks: row["FINAL REMARKS"] || "",
-        ipAdmissionRequired: parseBoolean(row["IP ADMISSION REQUIRED"]),
+				followUpRequired: parseBoolean(row["FOLLOW UP REQUIRED"]),
+				visitStatus: row["VISIT STATUS"] || "",
+				finalRemarks: row["FINAL REMARKS"] || "",
+				ipAdmissionRequired: parseBoolean(row["IP ADMISSION REQUIRED"]),
 
-        createdBy: req.user ? req.user._id : null,
-      };
+				createdBy: req.user ? req.user._id : null,
+			};
 
-      // Medicines
-      const medicines = [];
-      for (let i = 1; i <= 8; i++) {
-        const name = row[`MEDICINE ${i} NAME`];
-        const course = row[`MEDICINE ${i} COURSE`];
-        const expiry = row[`MEDICINE ${i} EXPIRY`];
+			// Medicines
+			const medicines = [];
+			for (let i = 1; i <= 8; i++) {
+				const name = row[`MEDICINE ${i} NAME`];
+				const course = row[`MEDICINE ${i} COURSE`];
+				const expiry = row[`MEDICINE ${i} EXPIRY`];
 
-        if (!name && !course && !expiry) continue;
+				if (!name && !course && !expiry) continue;
 
-        medicines.push({
-          name: name || "",
-          course: course || "",
-          expiryDate: parseDate(expiry),
-        });
-      }
-      visitData.medicines = medicines;
+				medicines.push({
+					name: name || "",
+					course: course || "",
+					expiryDate: parseDate(expiry),
+				});
+			}
+			visitData.medicines = medicines;
 
-      // Follow Up Visits
-      const followUps = [];
-      for (let j = 1; j <= 6; j++) {
-        const dateVal = row[`NEXT VISIT DATE ${j}`];
-        const remarksVal = row[`NEXT VISIT REMARKS ${j}`];
+			// Follow Up Visits
+			const followUps = [];
+			for (let j = 1; j <= 6; j++) {
+				const dateVal = row[`NEXT VISIT DATE ${j}`];
+				const remarksVal = row[`NEXT VISIT REMARKS ${j}`];
 
-        if (!dateVal && !remarksVal) continue;
+				if (!dateVal && !remarksVal) continue;
 
-        followUps.push({
-          visitDate: parseDate(dateVal),
-          visitRemarks: remarksVal || "",
-        });
-      }
-      visitData.followUpVisits = followUps;
+				followUps.push({
+					visitDate: parseDate(dateVal),
+					visitRemarks: remarksVal || "",
+				});
+			}
+			visitData.followUpVisits = followUps;
 
-      newVisits.push(visitData);
-    }
+			newVisits.push(visitData);
+		}
 
-    // Insert all
-    await ClinicVisit.insertMany(newVisits, { ordered: false });
+		// Insert all
+		await ClinicVisit.insertMany(newVisits, { ordered: false });
 
-    // Cleanup file
-    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+		// Cleanup file
+		if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
-    return res.status(200).json({
-      success: true,
-      message: `Successfully imported ${newVisits.length} records`,
-      count: newVisits.length,
-    });
+		return res.status(200).json({
+			success: true,
+			message: `Successfully imported ${newVisits.length} records`,
+			count: newVisits.length,
+		});
 
-  } catch (err) {
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    next(err);
-  }
+	} catch (err) {
+		if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+		next(err);
+	}
 }
 
 
+export const getDashboardVisits = async (req, res) => {
+	try {
+		const locationId = req.user.locationId;
 
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
 
+		const dayAfterTomorrow = new Date(today);
+		dayAfterTomorrow.setDate(today.getDate() + 3);
 
+		const visits = await ClinicVisit.aggregate([
+			{
+				$match: {
+					locationId: locationId,
+					$or: [
+						{
+							visitDateReferral: {
+								$gte: today,
+								$lt: dayAfterTomorrow
+							}
+						},
+						{
+							"followUpVisits.visitDate": {
+								$gte: today,
+								$lt: dayAfterTomorrow
+							}
+						}
+					]
+				}
+			},
 
-export default { createVisit, getVisits, getVisitById, getEmployeeInfo, updateVisit, deleteVisit, getVisitsByUserLocation, getManagerPrioritizedVisits, getEmpSummary, getEmpHistory, exportToExcel, filterByName, importExcel, searchVisits };
+			{
+				$project: {
+					clinicId: "$_id",
+
+					empNo: 1,
+					employeeName: 1,
+					locationId: 1,
+					mobileNumber: 1,
+					doctorName: 1,
+
+					referralCode: 1,
+					referralType: 1,
+					referredToHospital: 1,
+					visitDateReferral: 1,
+					specialistType: 1,
+					doctorNameReferral: 1,
+					followUpRequired: 1,
+
+					followUpVisits: {
+						$filter: {
+							input: "$followUpVisits",
+							as: "visit",
+							cond: {
+								$and: [
+									{ $gte: ["$$visit.visitDate", today] },
+									{ $lt: ["$$visit.visitDate", dayAfterTomorrow] }
+								]
+							}
+						}
+					}
+				}
+			},
+
+			{
+				$addFields: {
+					nextVisitDate: {
+						$cond: [
+							{ $gt: [{ $size: "$followUpVisits" }, 0] },
+							{ $min: "$followUpVisits.visitDate" },
+							"$visitDateReferral"
+						]
+					}
+				}
+			},
+
+			{
+				$sort: { nextVisitDate: 1 }
+			}
+		]);
+
+		res.json({
+			success: true,
+			count: visits.length,
+			data: visits
+		});
+
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
+
+export default { createVisit, getVisits, getVisitById, getEmployeeInfo, updateVisit, deleteVisit, getVisitsByUserLocation, getManagerPrioritizedVisits, getEmpSummary, getEmpHistory, exportToExcel, filterByName, importExcel, searchVisits, getDashboardVisits };
