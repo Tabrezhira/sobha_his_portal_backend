@@ -56,6 +56,10 @@ const HospitalSchema = new mongoose.Schema({
   handleBy: {
     type: String,
   },
+  irtNotified: {
+    type: Boolean,
+    default: false
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

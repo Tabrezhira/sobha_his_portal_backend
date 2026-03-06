@@ -671,6 +671,35 @@ async function getHospitalsByHandleBy(req, res, next) {
   }
 }
 
+// Mark IRT notified = true
+async function markIrtNotified(req, res, next) {
+  try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+
+    const { id } = req.params;
+
+    const updated = await Hospital.findByIdAndUpdate(
+      id,
+      { $set: { irtNotified: true } },
+      { new: true, runValidators: true }
+    ).populate([{ path: "createdBy", select: "name" }]);
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Not found" });
+    }
+
+    return res.json({
+      success: true,
+      message: "irtNotified set to true",
+      data: updated,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export default {
   createHospital,
   getHospitals,
@@ -681,5 +710,6 @@ export default {
   getHospitalsByManagerLocation,
   getHospitalByEmployeeAndDate,
   importExcel,
-  getHospitalsByHandleBy, // Add this
+  getHospitalsByHandleBy,
+  markIrtNotified, // Add this
 };

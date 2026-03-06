@@ -22,6 +22,7 @@ router.post("/import/excel", auth, upload.single("file"), controller.importExcel
 router.get("/", auth, controller.getHospitals);
 router.get("/manager/discharge-status", auth, controller.getHospitalsByManagerLocation);
 router.get("/upcoming-followups", auth, controller.getHospitalsByHandleBy); // Add this line
+router.patch("/:id/irt-notified", auth, controller.markIrtNotified); // Add this
 router.get("/employee/search", controller.getHospitalByEmployeeAndDate);
 router.get("/my-location", auth, controller.getHospitalsByUserLocation);
 router.get("/:id", controller.getHospitalById);
