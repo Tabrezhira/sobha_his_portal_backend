@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.post('/', auth, controller.createIsdRecord);
 router.get('/', auth, controller.getIsdRecords);
+router.get('/in-isolation/emp', auth, controller.getInIsolationIsdEmpList);
 
 // ISD vital routes
 router.post('/:isdId/vitals', auth, controller.createIsdVital);

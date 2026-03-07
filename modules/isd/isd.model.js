@@ -87,4 +87,4 @@ const isolationSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 
-export default mongoose.model('Isolation', isolationSchema);
+export default mongoose.model('isd', isolationSchema);

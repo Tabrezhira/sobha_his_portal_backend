@@ -68,6 +68,26 @@ async function getIsdRecords(req, res, next) {
   }
 }
 
+// List ISD records in isolation with minimal fields
+async function getInIsolationIsdEmpList(req, res, next) {
+  try {
+    const items = await Isd.find({ currentStatus: 'IN ISOLATION' })
+      .select('_id empNo employeeName')
+      .sort({ createdAt: -1, _id: -1 })
+      .lean();
+
+    const data = items.map((item) => ({
+      _id: item._id,
+      emp: item.empNo || '',
+      employeeName: item.employeeName || '',
+    }));
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 // Get ISD record by id
 async function getIsdRecordById(req, res, next) {
   try {
@@ -233,6 +253,7 @@ async function deleteIsdVital(req, res, next) {
 export default {
   createIsdRecord,
   getIsdRecords,
+  getInIsolationIsdEmpList,
   getIsdRecordById,
   updateIsdRecord,
   deleteIsdRecord,
