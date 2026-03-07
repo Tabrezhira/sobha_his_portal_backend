@@ -9,6 +9,7 @@ router.get('/', auth, controller.getIsdRecords);
 router.get('/in-isolation/emp', auth, controller.getInIsolationIsdEmpList);
 
 // ISD vital routes
+router.post('/vitals/bulk', auth, controller.createBulkIsdVitals);
 router.post('/:isdId/vitals', auth, controller.createIsdVital);
 router.get('/:isdId/vitals', auth, controller.getIsdVitals);
 router.get('/vitals/:vitalId', auth, controller.getIsdVitalById);

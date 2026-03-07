@@ -159,6 +159,35 @@ async function createIsdVital(req, res, next) {
   }
 }
 
+// Create bulk ISD vital records
+async function createBulkIsdVitals(req, res, next) {
+  try {
+    const { date, time, vitals } = req.body;
+
+    if (!Array.isArray(vitals) || vitals.length === 0) {
+      return res.status(400).json({ success: false, message: 'Valid vitals array is required' });
+    }
+
+    if (!date) {
+      return res.status(400).json({ success: false, message: 'Date is required for bulk vitals' });
+    }
+
+    // Process each vital and add the global date and time
+    const vitalsToInsert = vitals.map(vital => ({
+      ...vital,
+      date,
+      time
+    }));
+
+    // Perform bulk insertion
+    const savedVitals = await IsdVital.insertMany(vitalsToInsert);
+
+    return res.status(201).json({ success: true, data: savedVitals, message: `${savedVitals.length} vitals recorded successfully.` });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 // List vitals by ISD id with pagination
 async function getIsdVitals(req, res, next) {
   try {
@@ -262,4 +291,5 @@ export default {
   getIsdVitalById,
   updateIsdVital,
   deleteIsdVital,
+  createBulkIsdVitals,
 };
