@@ -7,11 +7,13 @@ const router = express.Router();
 // RCT record routes
 router.post('/', auth, controller.createRct);
 router.get('/', auth, controller.getRctRecords);
+router.get('/in-injury-recovery', auth, controller.getInInjuryRecovery);
 router.get('/:id', auth, controller.getRctById);
 router.put('/:id', auth, controller.updateRct);
 router.delete('/:id', auth, controller.deleteRct);
 
 // RCT vital routes
+router.post('/vitals/bulk', auth, controller.createBulkRctVitals);
 router.post('/:rctId/vitals', auth, controller.createRctVital);
 router.get('/:rctId/vitals', auth, controller.getRctVitals);
 router.get('/vitals/:vitalId', auth, controller.getRctVitalById);

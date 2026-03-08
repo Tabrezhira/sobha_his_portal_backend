@@ -59,6 +59,19 @@ async function getRctById(req, res, next) {
   }
 }
 
+// Get RCTs currently in injury recovery
+async function getInInjuryRecovery(req, res, next) {
+  try {
+    const items = await RCT.find({ recoveryStatus: 'IN INJURY RECOVERY' })
+      .select({ _id: 1, empNo: 1, employeeName: 1 });
+
+    return res.json({ success: true, data: items });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
 // Update RCT record
 async function updateRct(req, res, next) {
   try {
@@ -166,10 +179,40 @@ async function deleteRctVital(req, res, next) {
   }
 }
 
+// Create bulk RCT vital records
+async function createBulkRctVitals(req, res, next) {
+  try {
+    const { date, time, vitals } = req.body;
+
+    if (!Array.isArray(vitals) || vitals.length === 0) {
+      return res.status(400).json({ success: false, message: 'Valid vitals array is required' });
+    }
+
+    if (!date) {
+      return res.status(400).json({ success: false, message: 'Date is required for bulk vitals' });
+    }
+
+    // Process each vital and add the global date and time
+    const vitalsToInsert = vitals.map(vital => ({
+      ...vital,
+      date,
+      time
+    }));
+
+    // Perform bulk insertion
+    const savedVitals = await RCTVital.insertMany(vitalsToInsert);
+
+    return res.status(201).json({ success: true, data: savedVitals, message: `${savedVitals.length} vitals recorded successfully.` });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export default {
   createRct,
   getRctRecords,
   getRctById,
+  getInInjuryRecovery,
   updateRct,
   deleteRct,
   createRctVital,
@@ -177,4 +220,5 @@ export default {
   getRctVitalById,
   updateRctVital,
   deleteRctVital,
+  createBulkRctVitals,
 };
