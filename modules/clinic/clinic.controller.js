@@ -227,7 +227,7 @@ async function createVisit(req, res, next) {
 				String(payload.eligibilityForSickLeave).toLowerCase() === "true";
 
 			if (isEligible) {
-				locPrefix = `EL-${locPrefix}`;
+				locPrefix = `EL${locPrefix}`;
 			}
 
 			payload.tokenNo = `${locPrefix}-${dd}${mm}-${seqStr}`;
