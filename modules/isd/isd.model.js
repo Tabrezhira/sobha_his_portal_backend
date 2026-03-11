@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 
 const isolationSchema = new mongoose.Schema({
-
+  hospitalId: {
+    type: String
+  },
   type: {
     type: String
   },

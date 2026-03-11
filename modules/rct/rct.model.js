@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 const rctSchema = new mongoose.Schema({
+  hospitalId: String,
   type: String,
   subType: String,
   subTypeAuthority: String,
