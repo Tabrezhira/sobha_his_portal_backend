@@ -56,3 +56,4 @@ temp/
 *.sqlite
 *.db
 dump/
+modules/clinic/authfile/sobha-489906-26803a8ba718.json
