@@ -88,6 +88,10 @@ const ClinicVisitSchema = new mongoose.Schema(
     finalRemarks: { type: String },
     ipAdmissionRequired: { type: Boolean, default: false },
 
+    file: [{
+      fileUrl: String,
+      publicId: String,
+    }],
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

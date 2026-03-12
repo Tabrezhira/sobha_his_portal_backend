@@ -60,6 +60,11 @@ const HospitalSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+
+  file: [{
+    fileUrl: String,
+    publicId: String,
+  }],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
