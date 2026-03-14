@@ -49,6 +49,7 @@ import empDojRoutes from './modules/employeeDOJ/empDoj.routes.js';
 import isdRoutes from './modules/isd/isd.routes.js';
 import rctRoutes from './modules/rct/rct.routes.js';
 import mailRoutes from './modules/mail/mail.routes.js';
+import uploadRoutes from './modules/upload/upload.routes.js';
 
 app.use('/api/clinic', clinicRoutes);
 app.use('/api/isolation', isolationRoutes);
@@ -67,6 +68,7 @@ app.use('/api/emp-doj', empDojRoutes);
 app.use('/api/isd', isdRoutes);
 app.use('/api/rct', rctRoutes);
 app.use('/api/mail', mailRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.get("/debug-sentry", function mainHandler(req, res) {
   // Send a log before throwing the error
