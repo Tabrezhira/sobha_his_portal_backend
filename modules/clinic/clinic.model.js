@@ -91,6 +91,7 @@ const ClinicVisitSchema = new mongoose.Schema(
     file: [{
       fileUrl: String,
       publicId: String,
+      fileName: String,
     }],
 
     createdBy: {
