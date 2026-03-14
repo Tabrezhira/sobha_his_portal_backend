@@ -19,6 +19,7 @@ const HospitalSchema = new mongoose.Schema({
   hospitalName: { type: String },
 
   dateOfAdmission: { type: Date },
+  typeOfAdmission: { type: String, enum: ['Elective', 'Emergency'] },
 
   natureOfCase: { type: String },
   caseCategory: { type: String },
