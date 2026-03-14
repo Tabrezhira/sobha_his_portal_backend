@@ -85,7 +85,10 @@ const isolationSchema = new mongoose.Schema({
   currentStatus: {
     type: String,
   },
-
+  new:{
+    type: Boolean,
+    default: true
+  },
   remarks: {
     type: String
   }

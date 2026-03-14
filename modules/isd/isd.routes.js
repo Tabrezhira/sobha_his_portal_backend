@@ -1,6 +1,8 @@
 import express from 'express';
 import controller from './isd.controller.js';
 import auth from '../../middleware/auth.js';
+import mongoose from "mongoose";
+import Isd from "./isd.model.js";
 
 const router = express.Router();
 
@@ -19,5 +21,33 @@ router.delete('/vitals/:vitalId', auth, controller.deleteIsdVital);
 router.get('/:id', auth, controller.getIsdRecordById);
 router.put('/:id', auth, controller.updateIsdRecord);
 router.delete('/:id', auth, controller.deleteIsdRecord);
+
+// PATCH /isd/:id/mark-old
+router.patch("/:id/mark-old", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid _id" });
+    }
+
+    const updated = await Isd.findByIdAndUpdate(
+      id,
+      { $set: { new: false } },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Record not found" });
+    }
+
+    return res.status(200).json({
+      message: "`new` set to false successfully",
+      data: updated,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
 
 export default router;

@@ -46,7 +46,7 @@ import happinessSurveyRoutes from './modules/handI/happinessSurvey/happinessSurv
 import patientRoutes from './modules/patient/patient.routes.js';
 import professionRoutes from './modules/profession/profession.routes.js';
 import empDojRoutes from './modules/employeeDOJ/empDoj.routes.js';
-import isdRoutes from './modules/isd/isd.routes.js';
+import isdRoutes from "./modules/isd/isd.routes.js";
 import rctRoutes from './modules/rct/rct.routes.js';
 import mailRoutes from './modules/mail/mail.routes.js';
 import uploadRoutes from './modules/upload/upload.routes.js';
