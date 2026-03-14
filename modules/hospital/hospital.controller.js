@@ -3,9 +3,208 @@ import ClinicVisit from '../clinic/clinic.model.js';
 import XLSX from 'xlsx';
 import fs from 'fs';
 import IpAdmission from '../handI/ipAdmission/ipAdmission.model.js'; // add
+import nodemailer from "nodemailer";
 
+const managerEmailMap = {
+  "AL QUOZ": "vinod.jeganathan@sobhaconst.com",
+
+  "DIC 2": "amarnath.varadhan@sobhaconst.com",
+  "DIC 3": "amarnath.varadhan@sobhaconst.com",
+
+  "DIC 5": "jaya.barrankala@sobhaconst.com",
+  "DIP 1": "jaya.barrankala@sobhaconst.com",
+  "DIP 2": "jaya.barrankala@sobhaconst.com",
+  "RAHABA": "jaya.barrankala@sobhaconst.com",
+
+  "JEBAL ALI 1": "sikkandhar.batcha@sobhaconst.com",
+  "JEBAL ALI 2": "sikkandhar.batcha@sobhaconst.com",
+  "JEBAL ALI 3": "sikkandhar.batcha@sobhaconst.com",
+  "JEBAL ALI 4": "sikkandhar.batcha@sobhaconst.com",
+
+  "KHAWANEEJ": "mohammed.kandy@sobhaconst.com",
+  "SAJJA": "mohammed.kandy@sobhaconst.com",
+  "SAIF": "mohammed.kandy@sobhaconst.com",
+  "SONAPUR 6": "mohammed.kandy@sobhaconst.com",
+
+  "SONAPUR 1": "zafar.hamdan@sobhaconst.com",
+  "SONAPUR 2": "zafar.hamdan@sobhaconst.com",
+  "SONAPUR 3": "zafar.hamdan@sobhaconst.com",
+  "SONAPUR 4": "zafar.hamdan@sobhaconst.com",
+  "SONAPUR 5": "zafar.hamdan@sobhaconst.com",
+  
+};
+
+export const createHospital = async (req, res, next) => {
+  try {
+
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authenticated",
+      });
+    }
+
+    const payload = req.body || {};
+
+    payload.createdBy = req.user._id;
+
+    if (req.user.locationId) {
+      payload.locationId = req.user.locationId;
+    }
+
+    // Save hospital record
+    const hospital = new Hospital(payload);
+    const saved = await hospital.save();
+
+    const populated = await saved.populate({
+      path: "createdBy",
+      select: "name",
+    });
+
+    // Get manager email
+    const managerEmail = managerEmailMap[payload.trLocation];
+
+    if (managerEmail) {
+
+      const transporter = nodemailer.createTransport({
+        host: "smtp.office365.com",
+        port: 587,
+        secure: false,
+        auth: {
+          user: "tabrez.hakimji@sobhaconst.com",
+          pass: "Nov@2025",
+        },
+        tls: { rejectUnauthorized: false },
+      });
+
+const htmlTemplate = `
+<div style="font-family:Arial, Helvetica, sans-serif;background:#f4f6f8;padding:20px">
+
+<table width="700" align="center" style="background:#ffffff;border-collapse:collapse;border-radius:6px;overflow:hidden">
+
+<!-- HEADER -->
+<tr>
+<td style="background:#1f4e79;padding:15px;color:white;font-size:18px;font-weight:bold">
+HIS System Notification
+</td>
+</tr>
+
+<!-- BODY -->
+<tr>
+<td style="padding:20px;color:#333;font-size:14px">
+
+<p>Dear H&I Manager,</p>
+
+<p>Good day.</p>
+
+<p>
+Please be informed that an <b>IP admission</b> has been recorded under your TR location.
+The details are provided below. Kindly visit the member and do the needful.
+</p>
+
+<table width="100%" style="border-collapse:collapse;margin-top:15px">
+
+<tr style="background:#e9eff7">
+<th style="border:1px solid #d0d7e2;padding:10px;text-align:left">Field</th>
+<th style="border:1px solid #d0d7e2;padding:10px;text-align:left">Details</th>
+</tr>
+
+<tr>
+<td style="border:1px solid #d0d7e2;padding:8px"><b>Date of Admission</b></td>
+<td style="border:1px solid #d0d7e2;padding:8px">${payload.dateOfAdmission || "-"}</td>
+</tr>
+
+<tr style="background:#fafafa">
+<td style="border:1px solid #d0d7e2;padding:8px"><b>Hospital Name</b></td>
+<td style="border:1px solid #d0d7e2;padding:8px">${payload.hospitalName || "-"}</td>
+</tr>
+
+<tr>
+<td style="border:1px solid #d0d7e2;padding:8px"><b>Employee No</b></td>
+<td style="border:1px solid #d0d7e2;padding:8px">${payload.empNo || "-"}</td>
+</tr>
+
+<tr style="background:#fafafa">
+<td style="border:1px solid #d0d7e2;padding:8px"><b>Employee Name</b></td>
+<td style="border:1px solid #d0d7e2;padding:8px">${payload.employeeName || "-"}</td>
+</tr>
+
+<tr>
+<td style="border:1px solid #d0d7e2;padding:8px"><b>Emirates ID</b></td>
+<td style="border:1px solid #d0d7e2;padding:8px">${payload.emiratesId || "-"}</td>
+</tr>
+
+<tr style="background:#fafafa">
+<td style="border:1px solid #d0d7e2;padding:8px"><b>Insurance ID</b></td>
+<td style="border:1px solid #d0d7e2;padding:8px">${payload.insuranceId || "-"}</td>
+</tr>
+
+<tr>
+<td style="border:1px solid #d0d7e2;padding:8px"><b>Mobile Number</b></td>
+<td style="border:1px solid #d0d7e2;padding:8px">${payload.mobileNumber || "-"}</td>
+</tr>
+
+<tr style="background:#fafafa">
+<td style="border:1px solid #d0d7e2;padding:8px"><b>TR Location</b></td>
+<td style="border:1px solid #d0d7e2;padding:8px">${payload.trLocation || "-"}</td>
+</tr>
+
+<tr>
+<td style="border:1px solid #d0d7e2;padding:8px"><b>Nature of Case</b></td>
+<td style="border:1px solid #d0d7e2;padding:8px">${payload.natureOfCase || "-"}</td>
+</tr>
+
+<tr style="background:#fafafa">
+<td style="border:1px solid #d0d7e2;padding:8px"><b>Case Category</b></td>
+<td style="border:1px solid #d0d7e2;padding:8px">${payload.caseCategory || "-"}</td>
+</tr>
+
+<tr>
+<td style="border:1px solid #d0d7e2;padding:8px"><b>Remarks</b></td>
+<td style="border:1px solid #d0d7e2;padding:8px">${payload.finalRemarks || "-"}</td>
+</tr>
+
+</table>
+
+<p style="margin-top:25px">
+Regards,<br>
+<b>HIS System Notification</b>
+</p>
+
+</td>
+</tr>
+
+<!-- FOOTER -->
+<tr>
+<td style="background:#f1f1f1;padding:10px;font-size:12px;color:#777;text-align:center">
+Sobha Construction LLC • Health Information System
+</td>
+</tr>
+
+</table>
+
+</div>
+`;
+
+      await transporter.sendMail({
+        from: "tabrez.hakimji@sobhaconst.com",
+        to: managerEmail,
+        subject: "IP Admission Notification",
+        html: htmlTemplate,
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      data: populated,
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
 // Create a new hospital record
-async function createHospital(req, res, next) {
+async function createHospitalOld(req, res, next) {
   try {
     if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: 'Not authenticated' });
 
