@@ -189,6 +189,7 @@ Sobha Construction LLC • Health Information System
       await transporter.sendMail({
         from: "tabrez.hakimji@sobhaconst.com",
         to: managerEmail,
+        cc: ["tr.insuranceteam@sobha-me.com"],
         subject: "IP Admission Notification",
         html: htmlTemplate,
       });

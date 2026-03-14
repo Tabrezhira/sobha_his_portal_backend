@@ -9,7 +9,7 @@ const rctSchema = new mongoose.Schema({
   severity: String,
   diagnosis: String,
   employeeHealthStatus: String,
-
+  rctDays: Number,
   empNo: String,
   employeeName: String,
   emiratesId: String,

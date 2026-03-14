@@ -8,6 +8,9 @@ const isolationSchema = new mongoose.Schema({
   clinicId: {
     type: String
   },
+  isdDays: {
+    type: Number
+  },
   type: {
     type: String
   },
