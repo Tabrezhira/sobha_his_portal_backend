@@ -2,10 +2,11 @@ import mongoose from "mongoose";
 
 const HospitalSchema = new mongoose.Schema({
 
+
   locationId: { type: String, index: true },
 
   clinicVisitToken: { type: String, index: true },
-
+  time: { type: String },
   empNo: { type: String, required: true, index: true, uppercase: true },
   employeeName: { type: String, required: true, trim: true },
 
