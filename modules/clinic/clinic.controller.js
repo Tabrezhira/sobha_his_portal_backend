@@ -1671,7 +1671,7 @@ async function importExcel(req, res, next) {
 }
 
 
-export const getDashboardVisits = async (req, res) => {
+export const getDashboardVisitsOld = async (req, res) => {
 	try {
 		const locationId = req.user.locationId;
 
@@ -1762,6 +1762,105 @@ export const getDashboardVisits = async (req, res) => {
 		console.error(error);
 		res.status(500).json({ message: "Server error" });
 	}
+};
+
+
+
+
+export const getDashboardVisits = async (req, res) => {
+  try {
+
+    const locationId = req.user.locationId;
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    const dayAfterTomorrow = new Date(today);
+    dayAfterTomorrow.setDate(today.getDate() + 3);
+
+const visits = await ClinicVisit.aggregate([
+
+{
+  $addFields: {
+    filteredFollowUps: {
+      $filter: {
+        input: "$followUpVisits",
+        as: "visit",
+        cond: {
+          $and: [
+            { $gte: ["$$visit.visitDate", today] },
+            { $lt: ["$$visit.visitDate", dayAfterTomorrow] }
+          ]
+        }
+      }
+    }
+  }
+},
+
+{
+  $match: {
+    locationId: locationId,
+    $or: [
+      {
+        visitDateReferral: {
+          $gte: today,
+          $lt: dayAfterTomorrow
+        }
+      },
+      {
+        filteredFollowUps: { $ne: [] }
+      }
+    ]
+  }
+},
+
+{
+  $project: {
+    clinicId: "$_id",
+    empNo: 1,
+    employeeName: 1,
+    mobileNumber: 1,
+    doctorName: 1,
+
+    referralCode: 1,
+    referralType: 1,
+    referredToHospital: 1,
+    visitDateReferral: 1,
+    specialistType: 1,
+    doctorNameReferral: 1,
+    followUpRequired: 1,
+
+    followUpVisits: "$filteredFollowUps"
+  }
+},
+
+{
+  $addFields: {
+    nextVisitDate: {
+      $ifNull: [
+        { $min: "$followUpVisits.visitDate" },
+        "$visitDateReferral"
+      ]
+    }
+  }
+},
+
+{
+  $sort: { nextVisitDate: 1 }
+}
+
+]);
+
+    res.json({
+      success: true,
+      count: visits.length,
+      data: visits
+    });
+
+  } catch (error) {
+    console.error("Dashboard Visits Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
 export default { createVisit, getVisits, getVisitById, getEmployeeInfo, updateVisit, deleteVisit, getVisitsByUserLocation, getManagerPrioritizedVisits, getEmpSummary, getEmpHistory, exportToExcel, filterByName, importExcel, searchVisits, getDashboardVisits };
