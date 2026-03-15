@@ -5,32 +5,61 @@ import fs from 'fs';
 import IpAdmission from '../handI/ipAdmission/ipAdmission.model.js'; // add
 import nodemailer from "nodemailer";
 
+// const managerEmailMap = {
+//   "AL QUOZ": "vinod.jeganathan@sobhaconst.com",
+
+//   "DIC 2": "amarnath.varadhan@sobhaconst.com",
+//   "DIC 3": "amarnath.varadhan@sobhaconst.com",
+
+//   "DIC 5": "jaya.barrankala@sobhaconst.com",
+//   "DIP 1": "jaya.barrankala@sobhaconst.com",
+//   "DIP 2": "jaya.barrankala@sobhaconst.com",
+//   "RAHABA": "jaya.barrankala@sobhaconst.com",
+
+//   "JEBAL ALI 1": "sikkandhar.batcha@sobhaconst.com",
+//   "JEBAL ALI 2": "sikkandhar.batcha@sobhaconst.com",
+//   "JEBAL ALI 3": "sikkandhar.batcha@sobhaconst.com",
+//   "JEBAL ALI 4": "sikkandhar.batcha@sobhaconst.com",
+
+//   "KHAWANEEJ": "mohammed.kandy@sobhaconst.com",
+//   "SAJJA": "mohammed.kandy@sobhaconst.com",
+//   "SAIF": "mohammed.kandy@sobhaconst.com",
+//   "SONAPUR 6": "mohammed.kandy@sobhaconst.com",
+
+//   "SONAPUR 1": "zafar.hamdan@sobhaconst.com",
+//   "SONAPUR 2": "zafar.hamdan@sobhaconst.com",
+//   "SONAPUR 3": "zafar.hamdan@sobhaconst.com",
+//   "SONAPUR 4": "zafar.hamdan@sobhaconst.com",
+//   "SONAPUR 5": "zafar.hamdan@sobhaconst.com",
+  
+// };
+
 const managerEmailMap = {
-  "AL QUOZ": "vinod.jeganathan@sobhaconst.com",
+  "AL QUOZ": "Tabrez.hira@gmail.com",
 
-  "DIC 2": "amarnath.varadhan@sobhaconst.com",
-  "DIC 3": "amarnath.varadhan@sobhaconst.com",
+  "DIC 2":  "Tabrez.hira@gmail.com",
+  "DIC 3":  "Tabrez.hira@gmail.com",
 
-  "DIC 5": "jaya.barrankala@sobhaconst.com",
-  "DIP 1": "jaya.barrankala@sobhaconst.com",
-  "DIP 2": "jaya.barrankala@sobhaconst.com",
-  "RAHABA": "jaya.barrankala@sobhaconst.com",
+  "DIC 5":  "Tabrez.hira@gmail.com",
+  "DIP 1":  "Tabrez.hira@gmail.com",
+  "DIP 2":  "Tabrez.hira@gmail.com",
+  "RAHABA":  "Tabrez.hira@gmail.com",
 
-  "JEBAL ALI 1": "sikkandhar.batcha@sobhaconst.com",
-  "JEBAL ALI 2": "sikkandhar.batcha@sobhaconst.com",
-  "JEBAL ALI 3": "sikkandhar.batcha@sobhaconst.com",
-  "JEBAL ALI 4": "sikkandhar.batcha@sobhaconst.com",
+  "JEBAL ALI 1":  "Tabrez.hira@gmail.com",
+  "JEBAL ALI 2":  "Tabrez.hira@gmail.com",
+  "JEBAL ALI 3":  "Tabrez.hira@gmail.com",
+  "JEBAL ALI 4":  "Tabrez.hira@gmail.com",
 
-  "KHAWANEEJ": "mohammed.kandy@sobhaconst.com",
-  "SAJJA": "mohammed.kandy@sobhaconst.com",
-  "SAIF": "mohammed.kandy@sobhaconst.com",
-  "SONAPUR 6": "mohammed.kandy@sobhaconst.com",
+  "KHAWANEEJ":  "Tabrez.hira@gmail.com",
+  "SAJJA":  "Tabrez.hira@gmail.com",
+  "SAIF":  "Tabrez.hira@gmail.com",
+  "SONAPUR 6":  "Tabrez.hira@gmail.com",
 
-  "SONAPUR 1": "zafar.hamdan@sobhaconst.com",
-  "SONAPUR 2": "zafar.hamdan@sobhaconst.com",
-  "SONAPUR 3": "zafar.hamdan@sobhaconst.com",
-  "SONAPUR 4": "zafar.hamdan@sobhaconst.com",
-  "SONAPUR 5": "zafar.hamdan@sobhaconst.com",
+  "SONAPUR 1":  "Tabrez.hira@gmail.com",
+  "SONAPUR 2":  "Tabrez.hira@gmail.com",
+  "SONAPUR 3":  "Tabrez.hira@gmail.com",
+  "SONAPUR 4":  "Tabrez.hira@gmail.com",
+  "SONAPUR 5":  "Tabrez.hira@gmail.com",
   
 };
 
@@ -189,7 +218,7 @@ Sobha Construction LLC • Health Information System
       await transporter.sendMail({
         from: "tabrez.hakimji@sobhaconst.com",
         to: managerEmail,
-        cc: ["tr.insuranceteam@sobha-me.com"],
+        // cc: ["tr.insuranceteam@sobha-me.com"],
         subject: "IP Admission Notification",
         html: htmlTemplate,
       });
