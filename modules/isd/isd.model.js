@@ -98,7 +98,12 @@ const isolationSchema = new mongoose.Schema({
     createdAt: {
     type: Date,
     default: Date.now
-  }
+  },
+      file: [{
+      fileUrl: String,
+      publicId: String,
+      fileName: String,
+    }],
 
 }, { timestamps: true });
 
