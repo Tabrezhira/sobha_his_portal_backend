@@ -55,10 +55,21 @@ const rctSchema = new mongoose.Schema({
   recoveryStatus: String,
   finalStatus: String,
   remarks: String,
+
+  new:{
+    type: Boolean,
+    default: true
+  },
   createdAt: {
     type: Date,
     default: Date.now
-  }
+  },
+
+      file: [{
+      fileUrl: String,
+      publicId: String,
+      fileName: String,
+    }],
 },{ timestamps: true });
 
 const RCT = mongoose.model("RCT", rctSchema);

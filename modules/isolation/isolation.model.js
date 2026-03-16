@@ -39,7 +39,7 @@ const IsolationSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
-},
+},{ timestamps: true }
 
 );
 
