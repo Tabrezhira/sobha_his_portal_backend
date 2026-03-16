@@ -100,7 +100,7 @@ const ClinicVisitSchema = new mongoose.Schema(
       required: true,
       index: true,
     }
-  }
+  }, { timestamps: true }
 );
 
 export default mongoose.model("ClinicVisit", ClinicVisitSchema);

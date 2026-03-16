@@ -73,7 +73,7 @@ async function getInIsolationIsdEmpList(req, res, next) {
   try {
     const items = await Isd.find({ currentStatus: 'IN ISOLATION' })
       .select('_id empNo employeeName')
-      .sort({ createdAt: -1, _id: -1 })
+      .sort({ isolationInDay: -1, createdAt: -1, _id: -1 })
       .lean();
 
     const data = items.map((item) => ({

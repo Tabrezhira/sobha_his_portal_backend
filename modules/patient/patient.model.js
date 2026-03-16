@@ -40,7 +40,7 @@ const PatientSchema = new mongoose.Schema(
       }
     },
 
-  },
+  },{ timestamps: true }
 );
 
 // Fallback to regular mongoose.model if legacyDb is not configured

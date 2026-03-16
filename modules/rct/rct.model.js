@@ -54,8 +54,12 @@ const rctSchema = new mongoose.Schema({
 
   recoveryStatus: String,
   finalStatus: String,
-  remarks: String
-});
+  remarks: String,
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+},{ timestamps: true });
 
 const RCT = mongoose.model("RCT", rctSchema);
 

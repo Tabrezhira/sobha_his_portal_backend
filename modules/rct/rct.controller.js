@@ -36,7 +36,7 @@ async function getRctRecords(req, res, next) {
     const [total, items] = await Promise.all([
       RCT.countDocuments(query),
       RCT.find(query)
-        .sort({ createdAt: -1 })
+        .sort({ injuryRecoveryInDay: -1, createdAt: -1, _id: -1 })
         .skip((p - 1) * l)
         .limit(l),
     ]);

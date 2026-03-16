@@ -94,6 +94,10 @@ const isolationSchema = new mongoose.Schema({
   },
   remarks: {
     type: String
+  },
+    createdAt: {
+    type: Date,
+    default: Date.now
   }
 
 }, { timestamps: true });
