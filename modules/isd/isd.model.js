@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { stat } from "node:fs";
 
 
 const isolationSchema = new mongoose.Schema({
@@ -81,7 +82,8 @@ const isolationSchema = new mongoose.Schema({
   followUps: [
     {
       followUpDate: Date,
-      remarks: String
+      remarks: String,
+      status: { type: Boolean , default: false }
     }
   ],
 

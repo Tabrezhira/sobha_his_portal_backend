@@ -279,6 +279,91 @@ async function deleteIsdVital(req, res, next) {
   }
 }
 
+// Get follow-ups: today, tomorrow, day after tomorrow, missed
+async function getFollowUpsBySchedule(req, res, next) {
+  try {
+    const now = new Date();
+
+    // Helper to get start and end of a day
+    const dayRange = (offsetDays) => {
+      const start = new Date(now);
+      start.setDate(start.getDate() + offsetDays);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(start);
+      end.setHours(23, 59, 59, 999);
+
+      return { start, end };
+    };
+
+    const today = dayRange(0);
+    const tomorrow = dayRange(1);
+    const dayAfterTomorrow = dayRange(2);
+
+    // Fields to return for each record
+    const selectFields = 'empNo employeeName mobileNumber nationality roomNumber bedNumber followUps';
+
+    const records = await Isd.find({
+      'followUps.0': { $exists: true },
+    })
+      .select(selectFields)
+      .lean();
+
+    const todayList = [];
+    const tomorrowList = [];
+    const dayAfterTomorrowList = [];
+    const missedList = [];
+
+    records.forEach((record) => {
+      const base = {
+        _id: record._id,
+        empNo: record.empNo || '',
+        employeeName: record.employeeName || '',
+        mobileNumber: record.mobileNumber || '',
+        nationality: record.nationality || '',
+        roomNumber: record.roomNumber || '',
+        bedNumber: record.bedNumber || '',
+      };
+
+      record.followUps.forEach((fu) => {
+        if (!fu.followUpDate) return;
+
+        const fuDate = new Date(fu.followUpDate);
+        const entry = { ...base, followUp: fu };
+
+        if (fuDate >= today.start && fuDate <= today.end) {
+          todayList.push(entry);
+        } else if (fuDate >= tomorrow.start && fuDate <= tomorrow.end) {
+          tomorrowList.push(entry);
+        } else if (fuDate >= dayAfterTomorrow.start && fuDate <= dayAfterTomorrow.end) {
+          dayAfterTomorrowList.push(entry);
+        } else if (fuDate < today.start && fu.status !== true) {
+          // Past date and not completed = missed
+          missedList.push(entry);
+        }
+      });
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        today: todayList,
+        tomorrow: tomorrowList,
+        dayAfterTomorrow: dayAfterTomorrowList,
+        missed: missedList,
+      },
+      meta: {
+        todayCount: todayList.length,
+        tomorrowCount: tomorrowList.length,
+        dayAfterTomorrowCount: dayAfterTomorrowList.length,
+        missedCount: missedList.length,
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 export default {
   createIsdRecord,
   getIsdRecords,
@@ -292,4 +377,5 @@ export default {
   updateIsdVital,
   deleteIsdVital,
   createBulkIsdVitals,
+  getFollowUpsBySchedule,
 };

@@ -9,6 +9,7 @@ const router = express.Router();
 router.post('/', auth, controller.createIsdRecord);
 router.get('/', auth, controller.getIsdRecords);
 router.get('/in-isolation/emp', auth, controller.getInIsolationIsdEmpList);
+router.get('/followups/schedule', auth, controller.getFollowUpsBySchedule); // 👈 Add this
 
 // ISD vital routes
 router.post('/vitals/bulk', auth, controller.createBulkIsdVitals);
